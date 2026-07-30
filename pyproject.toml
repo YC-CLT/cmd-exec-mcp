@@ -1,0 +1,19 @@
+[project]
+name = "cmd-exec-mcp"
+version = "0.1.0"
+description = "MCP service for executing commands locally, in Docker, sandbox, and remote environments"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
