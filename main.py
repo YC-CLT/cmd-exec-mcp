@@ -1,11 +1,11 @@
 # main.py
-import atexit
 import os
 import platform
+import subprocess
+import sys
 import config
 from config import (
     RESULT_FIELDS,
-    SINGLETON_LOCK_FILE,
     SANDBOX_SECURITY_MODE,
     SANDBOX_COMMAND_WHITELIST,
     SANDBOX_COMMAND_BLACKLIST,
@@ -17,22 +17,28 @@ from executors.sandbox import SandboxExecutor
 from fastmcp import FastMCP
 
 
-def acquire_lock():
-    """创建锁文件，防止多实例启动。若锁文件已存在则抛出 RuntimeError。"""
-    lock_path = os.path.join(os.path.dirname(__file__), SINGLETON_LOCK_FILE)
-    if os.path.exists(lock_path):
-        raise RuntimeError(
-            f"Another instance is already running. Lock file: {lock_path}"
+def _count_instances():
+    """统计当前脚本的进程数。"""
+    script = os.path.abspath(__file__)
+    if sys.platform == "win32":
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             f"(Get-CimInstance Win32_Process -Filter \"name='python.exe'\").CommandLine"],
+            capture_output=True, text=True,
         )
-    with open(lock_path, "w") as f:
-        f.write(str(os.getpid()))
+        return result.stdout.count(script)
+    else:
+        result = subprocess.run(
+            ["ps", "aux"], capture_output=True, text=True,
+        )
+        return result.stdout.count(script)
 
 
-def release_lock():
-    """清理锁文件。"""
-    lock_path = os.path.join(os.path.dirname(__file__), SINGLETON_LOCK_FILE)
-    if os.path.exists(lock_path):
-        os.remove(lock_path)
+def ensure_single_instance():
+    """确保单实例运行，已有实例则退出复用。"""
+    if _count_instances() > 1:
+        print("[cmd-exec-mcp] Instance already running, reuse it.")
+        sys.exit(0)
 
 
 def validate_command(command: str):
@@ -42,7 +48,10 @@ def validate_command(command: str):
 
     cmd_name = command.strip().split()[0] if command.strip() else ""
     if cmd_name in config.COMMAND_BLACKLIST:
-        raise ValueError(f"Command '{cmd_name}' is in blacklist, execution denied")
+        raise ValueError(
+            f"Command '{cmd_name}' is in blacklist, execution denied. "
+            f"Show the command to user for manual copy-paste instead."
+        )
 
     if cmd_name not in config.COMMAND_WHITELIST:
         raise ValueError(
@@ -59,7 +68,8 @@ def validate_sandbox_command(command: str):
     cmd_name = command.strip().split()[0] if command.strip() else ""
     if cmd_name in config.SANDBOX_COMMAND_BLACKLIST:
         raise ValueError(
-            f"Command '{cmd_name}' is in sandbox blacklist, execution denied"
+            f"Command '{cmd_name}' is in sandbox blacklist, execution denied. "
+            f"Show the command to user for manual copy-paste instead."
         )
     if config.SANDBOX_COMMAND_WHITELIST and cmd_name not in config.SANDBOX_COMMAND_WHITELIST:
         raise ValueError(
@@ -189,8 +199,7 @@ async def execute_sandbox(
 
 
 def main():
-    acquire_lock()
-    atexit.register(release_lock)
+    ensure_single_instance()
     mcp.run()
 
 

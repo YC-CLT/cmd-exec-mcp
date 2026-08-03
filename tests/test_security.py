@@ -46,30 +46,19 @@ class TestDetectShell:
 
 
 class TestSingleton:
-    def test_lock_file_path_is_set(self):
-        from main import SINGLETON_LOCK_FILE
-        assert SINGLETON_LOCK_FILE.endswith(".lock")
+    def test_ensure_single_instance_does_not_exit_on_first_run(self, monkeypatch):
+        from main import ensure_single_instance
 
-    def test_acquire_and_release_lock(self, tmp_path, monkeypatch):
-        from main import acquire_lock, release_lock
-        lock_file = tmp_path / "test.lock"
-        monkeypatch.setattr("main.SINGLETON_LOCK_FILE", str(lock_file))
+        def _count_instances(): return 1
+        monkeypatch.setattr("main._count_instances", _count_instances)
 
-        acquire_lock()
-        assert lock_file.exists()
+        ensure_single_instance()  # should not exit
 
-        with pytest.raises(RuntimeError, match="already running"):
-            acquire_lock()
+    def test_ensure_single_instance_exits_on_second_run(self, monkeypatch):
+        from main import ensure_single_instance
 
-        release_lock()
-        assert not lock_file.exists()
+        def _count_instances(): return 2
+        monkeypatch.setattr("main._count_instances", _count_instances)
 
-    def test_acquire_lock_after_release(self, tmp_path, monkeypatch):
-        from main import acquire_lock, release_lock
-        lock_file = tmp_path / "test.lock"
-        monkeypatch.setattr("main.SINGLETON_LOCK_FILE", str(lock_file))
-
-        acquire_lock()
-        release_lock()
-        acquire_lock()  # should succeed after release
-        release_lock()
+        with pytest.raises(SystemExit):
+            ensure_single_instance()
