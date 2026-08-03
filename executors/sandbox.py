@@ -1,4 +1,3 @@
-# executors/local.py
 import asyncio
 import logging
 import os
@@ -17,19 +16,31 @@ logging.basicConfig(
     datefmt=LOG_DATE_FORMAT,
 )
 
-logger = logging.getLogger("local")
+logger = logging.getLogger("sandbox")
 
 
-class LocalExecutor(BaseExecutor):
-    async def execute(self, command, cwd=None, timeout=None, env=None):
-        logger.info("execute: %s", command)
+class SandboxExecutor(BaseExecutor):
+    def _build_docker_cmd(self, command, image, mount=None, cwd=None):
+        parts = ["docker", "run", "--rm", "-i"]
+        if mount:
+            parts.extend(["-v", mount])
+        if cwd:
+            parts.extend(["-w", cwd])
+        parts.append(image)
+        parts.extend(["sh", "-c", command])
+        return " ".join(parts)
+
+    async def execute(self, command, cwd=None, timeout=None,
+                      env=None, image=None, mount=None):
+        image = image or "ubuntu"
+        docker_cmd = self._build_docker_cmd(command, image, mount, cwd)
+        logger.info("execute: image=%s cmd=%s", image, command)
+
         start = time.time()
         proc = await asyncio.create_subprocess_shell(
-            command,
+            docker_cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
-            env=env,
         )
         try:
             if timeout is not None and timeout > 0:
@@ -58,7 +69,11 @@ class LocalExecutor(BaseExecutor):
                 exit_code=-1,
             )
 
-    async def execute_batch(self, commands, cwd=None, timeout=None, env=None):
-        logger.info("execute_batch: %d commands", len(commands))
-        tasks = [self.execute(cmd, cwd, timeout, env) for cmd in commands]
+    async def execute_batch(self, commands, cwd=None, timeout=None,
+                            env=None, image=None, mount=None):
+        logger.info("execute_batch: %d commands image=%s", len(commands), image or "ubuntu")
+        tasks = [
+            self.execute(cmd, cwd, timeout, env, image, mount)
+            for cmd in commands
+        ]
         return await asyncio.gather(*tasks)
