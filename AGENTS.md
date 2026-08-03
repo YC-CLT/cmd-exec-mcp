@@ -4,16 +4,50 @@
 
 - uv环境，py3.11
 - 所有命令前加 `;`，不用 `cmd /c`
+- Docker 沙箱模式需要本地 Docker 环境
 
 ## 关键文件
+
+| 文件 | 作用 |
+|------|------|
+| `config.py` | 所有配置常量（安全、沙箱、日志） |
+| `main.py` | MCP 服务入口，工具注册和安全校验 |
+| `executors/base.py` | 执行器抽象基类 |
+| `executors/local.py` | 本地命令执行器 |
+| `executors/sandbox.py` | Docker 沙箱执行器 |
+| `models.py` | ExecResult 数据模型 |
+| `tests/` | 测试目录 |
+
+## 关键常量
+
+| 常量 | 位置 | 说明 |
+|------|------|------|
+| `SECURITY_MODE` | config.py | 本地安全模式 restricted/full |
+| `COMMAND_WHITELIST` | config.py | 本地白名单 |
+| `COMMAND_BLACKLIST` | config.py | 本地黑名单 |
+| `SANDBOX_SECURITY_MODE` | config.py | 沙箱安全模式（独立配置） |
+| `SANDBOX_COMMAND_WHITELIST` | config.py | 沙箱白名单 |
+| `SANDBOX_COMMAND_BLACKLIST` | config.py | 沙箱黑名单 |
+| `SANDBOX_DEFAULT_IMAGE` | config.py | 沙箱默认镜像 ubuntu |
+| `SANDBOX_DEFAULT_MOUNT` | config.py | 沙箱默认挂载 None |
+| `SINGLETON_LOCK_FILE` | config.py | 单例锁文件名 |
+| `DEFAULT_TIMEOUT` | config.py | 默认超时 -1 无限制 |
+| `FORCE_SHELL` | config.py | 强制指定 Shell None 自动检测 |
+| `RESULT_FIELDS` | config.py | 返回字段开关 |
+| `LOG_FILE` | config.py | 日志文件 log.txt |
+| `LOG_FORMAT` | config.py | 日志格式 |
+| `LOG_DATE_FORMAT` | config.py | 日志时间格式 |
 
 ## 规则
 
 - **禁止使用 RunCommand**：命令行工具故障，AI 无法看到返回。所有命令以代码块形式输出，让用户手动复制执行
 - 命令行只能执行，看不到返回，需验证时通知用户手动输入
+- 所有命令前加 `;`，防止 pwsh 环境污染
 - 文本替换用 pwsh 正则：`(Get-Content file) -replace 'a','b' | Set-Content file`
 - WebFetch 只能搜索不能提取正文，提取网页用 `wet-mcp extract`
 - MCP 输出过长时：`; Copy-Item` 到根目录再 `\\n`→`\n` 还原换行
+- **monkeypatch 必须用 `import config` + `config.X`**：`from config import X` 会创建本地副本，monkeypatch 无法穿透
+- **logging.basicConfig 只生效一次**：local.py 和 sandbox.py 各自调用，但 Python logging 的 basicConfig 只在首次调用生效，后续是 no-op
 
 ## 工具/MCP
 
@@ -48,7 +82,11 @@
 - **GitHub raw 文件下载**：WebFetch 对 raw.githubusercontent.com 返回失败，用 `Invoke-WebRequest` 或 `wet-mcp extract`
 - **Temp 目录不可读**：Read 工具无法访问 `D:\Temp`，MCP 长输出需 Copy-Item 到项目根目录
 - **Subagent-Driven Development 与无提交约束**：当用户明确要求不提交时，subagent-driven-development 的 commit-based 工作流无法完全适用，应退化为直接实施 + 记录，跳过 commit 和 review-package 步骤
-- **uv pip install 环境差异**：实际安装的 fastmcp 版本为 3.4.5（非 plan 中写的 0.1.0），pytest 版本为 9.1.1（非 8.0.0），plan 中的版本约束 `>=` 是正确的，实际安装以最新兼容版本为准
-- **monkeypatch 与模块级 import**：`from config import SECURITY_MODE` 会在函数模块创建值的本地副本，`monkeypatch.setattr(config, "SECURITY_MODE", ...)` 无法穿透。必须用 `import config` + `config.SECURITY_MODE` 让函数在运行时动态读取模块属性
-- **Windows shell 单引号陷阱**：`asyncio.create_subprocess_shell` 在 Windows 默认走 cmd.exe，单引号 `'...'` 被当作字面字符而非字符串定界符。跨平台测试命令一律用双引号 `"..."` 包裹 Python -c 参数
-- **Python 3.13 asyncio proactor warning**：`PytestUnraisableExceptionWarning: ProactorBasePipeTransport.__del__` 是 Python 3.13 Windows 的已知 asyncio bug，不影响测试结果，可安全忽略
+- **uv pip install 环境差异**：实际安装的 fastmcp 版本可能不同于 plan 中写的版本，plan 中的 `>=` 约束是正确的，实际安装以最新兼容版本为准
+- **cross-plan CHANGELOG 共享**：多个 plan 共用同一个 CHANGELOG.md，追加时注意不要覆盖之前的内容，用 `##` 日期分隔
+- **uv pip install 污染宿主 venv**：`uv pip install` 装到当前激活的 venv 而非项目自己的 `.venv`。有 `.python-version` 的项目必须用 `uv sync` 创建隔离环境
+- **monkeypatch 与模块级 import**：`from config import SECURITY_MODE` 会在函数模块创建值的本地副本，`monkeypatch.setattr(config, "SECURITY_MODE", ...)` 无法穿透。必须用 `import config` + `config.SECURITY_MODE`
+- **Windows shell 单引号陷阱**：`asyncio.create_subprocess_shell` 在 Windows 默认走 cmd.exe，单引号 `'...'` 被当作字面字符。跨平台测试命令一律用双引号 `"..."`
+- **Python 3.11 asyncio proactor warning**：`PytestUnraisableExceptionWarning` 是 Windows 已知 bug，不影响测试结果，可安全忽略
+- **跨 Task 依赖检查**：并行派发时，Task N 可能依赖 Task N-1 的产物。执行前先检查依赖文件/配置是否存在，缺则补上
+- **fastmcp 3.x API 内部属性不可用**：`mcp._tool_manager._tools` 不存在，验证工具列表用 `await mcp.list_tools()`（async 方法，需 `asyncio.run` 包裹）

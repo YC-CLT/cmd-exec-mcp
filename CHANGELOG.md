@@ -81,3 +81,39 @@
 - 🔀 单步/并行双模式，并行按 `&&` 拆分 + `asyncio.gather` 并发
 - 🔐 单例锁文件防止多实例
 - 📦 返回字段可配置（stdout/stderr/exit_code/duration/is_timeout/command_echo）
+
+## 2026-07-30 - Task 1-2: 沙箱日志 + SandboxExecutor
+
+### Task 1: config.py + local.py 日志
+- 修改 `config.py`: 追加沙箱安全配置（SANDBOX_SECURITY_MODE, SANDBOX_COMMAND_WHITELIST/BLACKLIST, SANDBOX_DEFAULT_IMAGE, SANDBOX_DEFAULT_MOUNT）+ 日志配置（LOG_FILE, LOG_FORMAT, LOG_DATE_FORMAT）
+- 修改 `executors/local.py`: 加入 `logging` 模块，执行前记录 `INFO`、非零退出记录 `WARNING`、超时记录 `ERROR`，日志写入项目根目录 `log.txt`
+
+### Task 2: SandboxExecutor
+- 创建 `executors/sandbox.py`: `SandboxExecutor` 继承 `BaseExecutor`
+  - `_build_docker_cmd()`: 构建 `docker run --rm -i` 命令，支持挂载 `-v` 和工作目录 `-w`
+  - `execute()`: 异步执行 Docker 命令，支持超时控制
+  - `execute_batch()`: 并发执行多条 Docker 命令
+  - 日志记录与 LocalExecutor 一致
+
+### Task 3: main.py 沙箱支持
+- 修改 `main.py`:
+  - 新增 `validate_sandbox_command(command)`: 沙箱模式独立安全校验（SANDBOX_SECURITY_MODE / SANDBOX_COMMAND_BLACKLIST / SANDBOX_COMMAND_WHITELIST）
+  - 新增 `execute_sandbox()`: FastMCP tool，支持 Docker 沙箱执行，参数 image/mount/cwd 可覆盖
+  - 导入 `SandboxExecutor`，实例化 `sandbox = SandboxExecutor()`
+
+## 2026-07-30 - Task 4-6: 沙箱测试 + README + 验收
+
+### Task 4: 测试
+- 创建 `tests/test_sandbox_executor.py`: 5 个测试覆盖 `_build_docker_cmd`（基本命令、自定义镜像、挂载、工作目录、组合）
+- 创建 `tests/test_sandbox_security.py`: 4 个测试覆盖 `validate_sandbox_command`（完全模式放行、黑名单拦截、白名单过滤、黑名单优先）
+
+### Task 5: README.md
+- 编写 `README.md`: 自用项目风格，MIT 协议，含功能列表、安装、配置表、使用示例、测试命令、日志说明
+
+### Task 6: 验收
+- 全量测试: ✅ 38/38 passed
+- MCP 工具列表: ✅ `['execute_local', 'execute_sandbox']`
+
+### 修复记录
+- **monkeypatch 穿透（沙箱）**: `validate_sandbox_command` 中 `SANDBOX_SECURITY_MODE` 等从 `from config import` 改为 `config.SANDBOX_SECURITY_MODE`，使测试 monkeypatch 能动态生效
+- **fastmcp 3.x API 差异**: `mcp._tool_manager._tools` 不存在，改用 `await mcp.list_tools()`（async）获取工具列表
