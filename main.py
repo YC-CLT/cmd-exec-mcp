@@ -6,8 +6,14 @@ import config
 from config import (
     RESULT_FIELDS,
     SINGLETON_LOCK_FILE,
+    SANDBOX_SECURITY_MODE,
+    SANDBOX_COMMAND_WHITELIST,
+    SANDBOX_COMMAND_BLACKLIST,
+    SANDBOX_DEFAULT_IMAGE,
+    SANDBOX_DEFAULT_MOUNT,
 )
 from executors.local import LocalExecutor
+from executors.sandbox import SandboxExecutor
 from fastmcp import FastMCP
 
 
@@ -42,6 +48,22 @@ def validate_command(command: str):
         raise ValueError(
             f"Command '{cmd_name}' is not in whitelist, execution denied. "
             f"Allowed commands: {config.COMMAND_WHITELIST}"
+        )
+
+
+def validate_sandbox_command(command: str):
+    """沙箱模式安全校验（独立于本地模式）"""
+    if config.SANDBOX_SECURITY_MODE == "full":
+        return
+
+    cmd_name = command.strip().split()[0] if command.strip() else ""
+    if cmd_name in config.SANDBOX_COMMAND_BLACKLIST:
+        raise ValueError(
+            f"Command '{cmd_name}' is in sandbox blacklist, execution denied"
+        )
+    if config.SANDBOX_COMMAND_WHITELIST and cmd_name not in config.SANDBOX_COMMAND_WHITELIST:
+        raise ValueError(
+            f"Command '{cmd_name}' is not in sandbox whitelist, execution denied"
         )
 
 
@@ -84,6 +106,7 @@ def resolve_timeout(timeout: int) -> int | None:
 
 mcp = FastMCP("cmd-exec-mcp")
 executor = LocalExecutor()
+sandbox = SandboxExecutor()
 
 
 @mcp.tool()
@@ -118,6 +141,50 @@ async def execute_local(
     validate_command(command)
     command = wrap_command(command)
     result = await executor.execute(command, cwd=cwd, timeout=timeout, env=env)
+    return result.to_dict(fields)
+
+
+@mcp.tool()
+async def execute_sandbox(
+    command: str,
+    image: str = None,
+    cwd: str = None,
+    mount: str = None,
+    timeout: int = None,
+    env: dict = None,
+    parallel: bool = False,
+    fields: dict = None,
+) -> dict | list[dict]:
+    """在 Docker 沙箱中执行命令。
+
+    Args:
+        command: 命令字符串，并行模式下用 && 分隔
+        image: Docker 镜像，None 使用 SANDBOX_DEFAULT_IMAGE
+        cwd: 容器内工作目录
+        mount: 挂载路径 "host:container"，None 不挂载
+        timeout: 超时秒数
+        env: 环境变量（容器内）
+        parallel: 是否并行执行
+        fields: 返回字段过滤
+    """
+    image = image or SANDBOX_DEFAULT_IMAGE
+    timeout = resolve_timeout(timeout)
+
+    if parallel:
+        commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
+        for cmd in commands:
+            validate_sandbox_command(cmd)
+        results = await sandbox.execute_batch(
+            commands, cwd=cwd, timeout=timeout, env=env,
+            image=image, mount=mount
+        )
+        return [r.to_dict(fields) for r in results]
+
+    validate_sandbox_command(command)
+    result = await sandbox.execute(
+        command, cwd=cwd, timeout=timeout, env=env,
+        image=image, mount=mount
+    )
     return result.to_dict(fields)
 
 
