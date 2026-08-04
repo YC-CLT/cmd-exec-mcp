@@ -12,3 +12,4 @@ wheels/
 mcp_tools_summary.csv
 docs/superpowers/*
 log.txt
+.env

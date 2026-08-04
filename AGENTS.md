@@ -17,6 +17,7 @@
 | `executors/local.py` | 本地命令执行器 |
 | `executors/sandbox.py` | Docker 沙箱执行器 |
 | `executors/opensandbox.py` | OpenSandbox 沙箱执行器（封装 opensandbox SDK） |
+| `executors/remote.py` | SSH 远程执行器（asyncssh，支持 ssh_config / .env 两种模式） |
 | `models.py` | ExecResult 数据模型 |
 | `tests/` | 测试目录 |
 
@@ -43,6 +44,9 @@
 | `LOG_FILE` | config.py | 日志文件 log.txt |
 | `LOG_FORMAT` | config.py | 日志格式 |
 | `LOG_DATE_FORMAT` | config.py | 日志时间格式 |
+| `SSH_CONFIG_MODE` | config.py | SSH 配置模式 standard/custom |
+| `SSH_PERSISTENT` | config.py | 长连接复用开关 |
+| `SSH_CONNECTION_TIMEOUT` | config.py | SSH 连接超时秒数 |
 
 ## 规则
 
@@ -51,6 +55,9 @@
 - **executor 签名变更影响链**：方法签名变动时，main.py 工具、测试、同接口的其他 executor 都要同步适配
 - **config 重命名需全量搜索**：常量改名/移除后，grep 全量引用，确保测试、main.py、executor 等所有引用点同步更新
 - **跨 Task 依赖等待**：并行派发时，先检查上游 Task 产物是否存在，确认就绪后再动自己的代码
+- **uv sync 会清 dev 依赖**：`uv sync` 只同步 `[project.dependencies]`，会移除 pytest 等 dev 依赖。依赖变更后使用 `uv pip install -e ".[dev]"` 确保 dev 依赖保留
+- **opensandbox SDK 超时处理**：`Sandbox.create()` 的 timeout 参数接受 `timedelta` 或 `None`。`config.DEFAULT_TIMEOUT = -1` 表示无限制，需转换为 `None` 传入
+- **RemoteExecutor 长连接模式**：`SSH_PERSISTENT=True` 时复用 `self._conn`，需检查 `is_closed()`。非持久模式 `finally` 中 `conn.close()` 断开。超时捕获后非持久模式也要 close
 
 ## 查文献指南
 
@@ -110,3 +117,6 @@
 - **cmd /c 双层包装**：`subprocess.run(shell=True)` 在 Windows 上已走 `cmd.exe /c`，`wrap_command` 不应再包一层 `cmd /c`，否则引号双层转义导致命令断裂
 - **env 全覆盖陷阱**：`subprocess.run(env=user_env)` 替换整个环境变量，PATH 丢失致 `chcp` 等命令找不到，应先 `os.environ.copy()` 再 `.update()`
 - **Windows 超时进程树残留**：`subprocess.run(timeout=N)` 只杀 `cmd.exe`，子进程残留导致 `run()` 迟迟不返回，改用 `Popen` + `communicate(timeout=...)` + `taskkill /F /T /PID` 杀进程树
+- **executor 的 from config import 副本**：`from config import X` 在 executor 模块级创建本地副本，monkeypatch `config.X` 不穿透。需 patch `executors.模块名.X`。用 `_setup_remote_mocks` 等辅助函数统一 patch 所有模块级常量 + SDK 引用
+- **plan 中的 API 可能不存在**：plan 里的 `asyncssh.read_config()` 在实际 asyncssh 库中不存在（实际是 `SSHClientConfig.load()`），测试 mock 可以绕过，但 executor 运行时调用的是已存在的 API
+- **asyncssh.connect 原生支持 ssh_config**：`asyncssh.connect(host=alias, config=[~/.ssh/config])` 直接读取 Host 别名，无需手动解析

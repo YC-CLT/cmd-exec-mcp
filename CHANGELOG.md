@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026-08-05 — execute_remote SSH 远程执行
+
+### 新增
+- `executors/remote.py`：`RemoteExecutor` 继承 `BaseExecutor`
+  - `_connect()`：`standard` 模式用 `asyncssh.connect(host=SSH_HOST_NAME, config=[~/.ssh/config])`，`custom` 模式读 `.env`
+  - `_get_connection()`：`SSH_PERSISTENT` 长连接复用
+  - `execute()`：asyncssh 异步执行，超时捕获 `asyncio.TimeoutError`
+  - `execute_batch()`：`asyncio.gather` 并发（复用同一 TCP 连接，每个命令独立 SSH channel）
+- `main.py`：注册 `execute_remote` MCP 工具，5 参数签名 `(command, timeout, env, parallel, fields)`
+- `config.py`：新增 `SSH_HOST_NAME`（standard 模式指定 Host 别名）
+
+### 测试
+- `tests/test_remote_executor.py`：9 个 Mock asyncssh 测试
+- `tests/test_config.py`：追加 3 个 SSH 配置断言
+- 全量 55/55 passed
+
+### 实测验证
+- 目标 rpig（树莓派 aarch64 Debian）：`whoami` / `uname -a` / `python3 -V` / `docker ps` 全部通过
+- 并发 batch：4 命令 0.45s，复用同一 TCP 连接
+
+### 修复记录
+- **asyncssh.read_config 不存在**：asyncssh 2.24.0 无此 API，改用 `asyncssh.connect(host=SSH_HOST_NAME, config=[~/.ssh/config])` 原生支持
+- **remote.py 模块级 import 副本**：`from config import SSH_CONFIG_MODE` 在 remote.py 创建本地值，monkeypatch `config.SSH_CONFIG_MODE` 不穿透。需 patch `executors.remote.SSH_CONFIG_MODE` 直接模块属性
+
 ## 2026-08-05 — OpenSandbox 环境修复 + 换源
 
 ### 修复：OpenSandbox Python 不可用
@@ -94,6 +118,13 @@
 ### 修复
 - **monkeypatch 穿透（沙箱）**：`from config import` → `import config` + `config.X`
 - **fastmcp 3.x API**：`mcp._tool_manager._tools` 不存在，改用 `await mcp.list_tools()`
+
+## 2026-08-05 — SSH 远程执行前置配置
+
+### 新增
+- `config.py` 追加 `SSH_CONFIG_MODE`、`SSH_PERSISTENT`、`SSH_CONNECTION_TIMEOUT`
+- `.env.example`（SSH_HOST/SSH_PORT/SSH_USER/SSH_KEY_PATH/SSH_PASSWORD/SSH_KNOWN_HOSTS）
+- `pyproject.toml` 追加 `asyncssh>=2.14.0`、`python-dotenv>=1.0.0`
 
 ## 2026-07-30 — 项目基础设施
 
