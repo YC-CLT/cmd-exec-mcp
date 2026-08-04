@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-03 - 执行器重构 + 文档优化
+
+### 修复: Windows 管道句柄继承导致子进程挂起
+- `asyncio.create_subprocess_shell` 在 Windows 上创建的管道句柄被孙子进程继承，`communicate()` 永远等不到 EOF
+- 现象：`git` 任何命令（包括 `git --version`）都卡死超时，`echo`/`python --version` 等无子进程的命令正常
+- 修复：`asyncio.create_subprocess_shell` + `proc.communicate()` → `loop.run_in_executor` + `subprocess.run(stdin=DEVNULL, capture_output=True)`
+- 影响文件：`executors/local.py`, `executors/sandbox.py`
+
+### 优化: MCP 工具 docstring
+- `execute_local` / `execute_sandbox` 的 docstring 从简单 Args 格式改为紧凑摘要 + 参数速查 + 示例
+- `list_tools` 返回的第一行包含完整信息（安全模式、参数、返回格式）
+
+### 优化: mcp_tools_summary.csv
+- 两个工具的 Description 从一句话扩展为完整参数说明 + 返回值格式
+
 ## 2026-07-30 - Task 1-3: 项目基础设施
 
 ### Task 1: 项目环境配置

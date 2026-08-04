@@ -128,15 +128,17 @@ async def execute_local(
     parallel: bool = False,
     fields: dict = None,
 ) -> dict | list[dict]:
-    """在本地执行命令。
+    """在本地执行命令(restricted模式,白名单:ls/dir/git/python/echo/cat/type/pwd/cd)。
 
-    Args:
-        command: 命令字符串，并行模式下用 && 分隔多个命令
-        cwd: 工作目录，受限模式下忽略
-        timeout: 超时秒数，None 使用默认值，-1 无限制
-        env: 环境变量字典
-        parallel: 是否并行执行，True 时按 && 拆分并发执行
-        fields: 返回字段过滤，None 使用全局 RESULT_FIELDS 配置
+    command: 要执行的命令, 并行用 && 分隔 + parallel=True
+    cwd: 工作目录, timeout: 超时秒数(-1无限), env: 环境变量
+    parallel: 并行执行, fields: 返回字段过滤如 {"stdout": True}
+    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo}
+
+    Example:
+        execute_local("echo hello")
+        execute_local("echo one && echo two", parallel=True)
+        execute_local("git status", timeout=10)
     """
     cwd = resolve_cwd(cwd)
     timeout = resolve_timeout(timeout)
@@ -165,17 +167,18 @@ async def execute_sandbox(
     parallel: bool = False,
     fields: dict = None,
 ) -> dict | list[dict]:
-    """在 Docker 沙箱中执行命令。
+    """在Docker沙箱执行命令(full模式,需本地Docker,默认ubuntu镜像)。
 
-    Args:
-        command: 命令字符串，并行模式下用 && 分隔
-        image: Docker 镜像，None 使用 SANDBOX_DEFAULT_IMAGE
-        cwd: 容器内工作目录
-        mount: 挂载路径 "host:container"，None 不挂载
-        timeout: 超时秒数
-        env: 环境变量（容器内）
-        parallel: 是否并行执行
-        fields: 返回字段过滤
+    command: 容器内命令, 并行用 && 分隔 + parallel=True
+    image: 镜像(默认ubuntu), cwd: 容器内工作目录, mount: 挂载 host:container
+    timeout: 超时秒数(-1无限), env: 容器内环境变量
+    parallel: 并行执行(每个命令独立容器), fields: 返回字段过滤
+    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo}
+
+    Example:
+        execute_sandbox("echo hello")
+        execute_sandbox("whoami && uname -a")
+        execute_sandbox("ls /data", mount="d:/data:/data", image="python:3.11")
     """
     image = image or SANDBOX_DEFAULT_IMAGE
     timeout = resolve_timeout(timeout)

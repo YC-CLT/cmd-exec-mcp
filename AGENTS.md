@@ -90,3 +90,4 @@
 - **跨 Task 依赖检查**：并行派发时，Task N 可能依赖 Task N-1 的产物。执行前先检查依赖文件/配置是否存在，缺则补上
 - **fastmcp 3.x API 内部属性不可用**：`mcp._tool_manager._tools` 不存在，验证工具列表用 `await mcp.list_tools()`（async 方法，需 `asyncio.run` 包裹）
 - **Docker sh -c 命令引号**：`" ".join(parts)` 拼接 docker 命令时 `sh -c` 后的命令必须用双引号包裹，否则只有第一个词被当作命令执行。`shlex.quote()` 输出单引号，Windows cmd.exe 不认，需手动双引号 + 转义内部双引号
+- **Windows 管道句柄继承**：`asyncio.create_subprocess_shell` 在 Windows 上创建的管道句柄可被孙子进程继承，导致 `communicate()` 读不到 EOF 永久阻塞。改用 `loop.run_in_executor` + `subprocess.run(stdin=DEVNULL, capture_output=True)`，`subprocess.Popen` 默认 `close_fds=True` 用 `PROC_THREAD_ATTRIBUTE_HANDLE_LIST` 防句柄泄漏

@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os
+import subprocess
 import time
 from config import LOG_FILE, LOG_FORMAT, LOG_DATE_FORMAT
 from executors.base import BaseExecutor
@@ -24,32 +25,34 @@ class LocalExecutor(BaseExecutor):
     async def execute(self, command, cwd=None, timeout=None, env=None):
         logger.info("execute: %s", command)
         start = time.time()
-        proc = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
-            env=env,
-        )
+
+        loop = asyncio.get_running_loop()
+        subprocess_timeout = timeout if timeout is not None and timeout > 0 else None
+
         try:
-            if timeout is not None and timeout > 0:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=timeout
-                )
-            else:
-                stdout, stderr = await proc.communicate()
+            result = await loop.run_in_executor(
+                None,
+                lambda: subprocess.run(
+                    command,
+                    shell=True,
+                    cwd=cwd,
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    timeout=subprocess_timeout,
+                ),
+            )
             result = ExecResult(
                 command_echo=command,
-                stdout=stdout.decode(errors="replace"),
-                stderr=stderr.decode(errors="replace"),
-                exit_code=proc.returncode or 0,
+                stdout=result.stdout.decode(errors="replace"),
+                stderr=result.stderr.decode(errors="replace"),
+                exit_code=result.returncode,
                 duration=round(time.time() - start, 3),
             )
             level = logging.WARNING if result.exit_code != 0 else logging.INFO
             logger.log(level, "exit_code=%s duration=%.3f", result.exit_code, result.duration)
             return result
-        except asyncio.TimeoutError:
-            proc.kill()
+        except subprocess.TimeoutExpired:
             logger.error("timeout: %s", command)
             return ExecResult(
                 command_echo=command,
