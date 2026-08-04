@@ -27,7 +27,8 @@ class SandboxExecutor(BaseExecutor):
         if cwd:
             parts.extend(["-w", cwd])
         parts.append(image)
-        parts.extend(["sh", "-c", command])
+        escaped = command.replace('"', '\\"')
+        parts.extend(["sh", "-c", f'"{escaped}"'])
         return " ".join(parts)
 
     async def execute(self, command, cwd=None, timeout=None,

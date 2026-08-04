@@ -3,8 +3,8 @@
 ## 环境
 
 - uv环境，py3.11
-- 所有命令前加 `;`，不用 `cmd /c`
-- Docker 沙箱模式需要本地 Docker 环境
+- 本地命令执行走 `cmd-exec-mcp` 的 `execute_local`，不手动跑命令
+- Docker 沙箱模式需要本地 Docker 环境，走 `execute_sandbox`
 
 ## 关键文件
 
@@ -40,9 +40,8 @@
 
 ## 规则
 
-- **禁止使用 RunCommand**：命令行工具故障，AI 无法看到返回。所有命令以代码块形式输出，让用户手动复制执行
-- 命令行只能执行，看不到返回，需验证时通知用户手动输入
-- 所有命令前加 `;`，防止 pwsh 环境污染
+- **禁止使用 RunCommand**：命令行工具故障，AI 无法看到返回。本地命令用 `cmd-exec-mcp` 的 `execute_local`，沙箱命令用 `execute_sandbox`
+- 所有命令执行走 MCP，不输出代码块让用户手动跑
 - 文本替换用 pwsh 正则：`(Get-Content file) -replace 'a','b' | Set-Content file`
 - WebFetch 只能搜索不能提取正文，提取网页用 `wet-mcp extract`
 - MCP 输出过长时：`; Copy-Item` 到根目录再 `\\n`→`\n` 还原换行
@@ -90,3 +89,4 @@
 - **Python 3.11 asyncio proactor warning**：`PytestUnraisableExceptionWarning` 是 Windows 已知 bug，不影响测试结果，可安全忽略
 - **跨 Task 依赖检查**：并行派发时，Task N 可能依赖 Task N-1 的产物。执行前先检查依赖文件/配置是否存在，缺则补上
 - **fastmcp 3.x API 内部属性不可用**：`mcp._tool_manager._tools` 不存在，验证工具列表用 `await mcp.list_tools()`（async 方法，需 `asyncio.run` 包裹）
+- **Docker sh -c 命令引号**：`" ".join(parts)` 拼接 docker 命令时 `sh -c` 后的命令必须用双引号包裹，否则只有第一个词被当作命令执行。`shlex.quote()` 输出单引号，Windows cmd.exe 不认，需手动双引号 + 转义内部双引号

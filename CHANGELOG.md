@@ -117,3 +117,16 @@
 ### 修复记录
 - **monkeypatch 穿透（沙箱）**: `validate_sandbox_command` 中 `SANDBOX_SECURITY_MODE` 等从 `from config import` 改为 `config.SANDBOX_SECURITY_MODE`，使测试 monkeypatch 能动态生效
 - **fastmcp 3.x API 差异**: `mcp._tool_manager._tools` 不存在，改用 `await mcp.list_tools()`（async）获取工具列表
+
+## 2026-08-03 - 沙箱修复 + AGENTS.md 更新
+
+### 修复: SandboxExecutor `_build_docker_cmd` 命令引号缺失
+- `" ".join(parts)` 拼接后 `sh -c` 后的命令无引号，Docker 容器内 `sh -c` 只取第一个词作为命令，其余词变成 `sh` 的位置参数
+- 现象：`echo hello from sandbox` 的 stdout 为空，exit_code 仍为 0
+- 修复：`escaped = command.replace('"', '\\"')` + `f'"{escaped}"'` 手动双引号包裹
+- 不可用 `shlex.quote()`：输出单引号，Windows cmd.exe 不认，导致容器内 "Unterminated quoted string" 错误
+
+### AGENTS.md 更新
+- 环境：命令执行改为走 `cmd-exec-mcp` 的 `execute_local` / `execute_sandbox`，不再手动跑
+- 规则：去掉 `;` 前缀和 `cmd /c` 约束，改为 MCP 执行
+- 坑点：新增 Docker sh -c 命令引号
