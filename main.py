@@ -18,6 +18,28 @@ from executors.remote import RemoteExecutor
 from fastmcp import FastMCP
 
 
+def _handle_output_file(result, output_file: str):
+    """将完整 stdout 写入指定路径，stdout 截断为预览。
+
+    output_file 应为绝对路径，如 D:/myproject/result.txt。
+    文件名会经过 basename 消毒防止路径穿越。
+    """
+    if not output_file:
+        return result
+    safe_name = os.path.basename(output_file) or "output.txt"
+    if os.path.isabs(output_file):
+        filepath = os.path.join(os.path.dirname(output_file), safe_name)
+    else:
+        filepath = os.path.join(os.getcwd(), safe_name)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(result.stdout)
+    truncate_len = config.OUTPUT_TRUNCATE_LENGTH
+    if len(result.stdout) > truncate_len:
+        result.stdout = result.stdout[:truncate_len] + f"\n... (truncated, full output at {safe_name})"
+    result.output_file = safe_name
+    return result
+
+
 def _count_instances():
     """统计当前脚本的进程数。"""
     script = os.path.abspath(__file__)
@@ -148,6 +170,7 @@ async def execute_local(
     parallel: bool = False,
     fields: dict = None,
     shell: str = None,
+    output_file: str = "",
 ) -> dict | list[dict]:
     """在本地执行命令(restricted模式,白名单:ls/dir/git/python/echo/cat/type/pwd/cd)。
 
@@ -155,13 +178,15 @@ async def execute_local(
     cwd: 工作目录, timeout: 超时秒数(-1无限), env: 环境变量
     parallel: 并行执行, fields: 返回字段过滤如 {"stdout": True}
     shell: 指定 Shell，可选 "pwsh"|"cmd"|"bash"，默认自动检测
-    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo}
+    output_file: 输出过长时指定绝对路径如 D:/project/out.txt，完整 stdout 落盘，返回截断预览
+    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
 
     Example:
         execute_local("echo hello")
         execute_local("echo one && echo two", parallel=True)
         execute_local("git status", timeout=10)
         execute_local("echo hello", shell="cmd")
+        execute_local("cat huge.log", output_file="D:/myproject/huge_log.txt")
     """
     cwd = resolve_cwd(cwd)
     timeout = resolve_timeout(timeout)
@@ -177,7 +202,7 @@ async def execute_local(
     validate_command(command)
     command = wrap_command(command, shell)
     result = await executor.execute(command, cwd=cwd, timeout=timeout, env=env)
-    return result.to_dict(fields)
+    return _handle_output_file(result, output_file).to_dict(fields)
 
 
 @mcp.tool()
@@ -187,13 +212,15 @@ async def execute_sandbox(
     env: dict = None,
     parallel: bool = False,
     fields: dict = None,
+    output_file: str = "",
 ) -> dict | list[dict]:
     """在沙箱中执行命令（Docker/OpenSandbox，由 SANDBOX_BACKEND 决定）。
 
     command: 容器内命令, 并行用 && 分隔 + parallel=True
     timeout: 超时秒数(-1无限), env: 容器内环境变量
     parallel: 并行执行(每个命令独立容器), fields: 返回字段过滤
-    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo}
+    output_file: 输出过长时指定绝对路径如 D:/project/out.txt，完整 stdout 落盘，返回截断预览
+    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
 
     Example:
         execute_sandbox("echo hello")
@@ -230,7 +257,7 @@ async def execute_sandbox(
         result = await opensandbox.execute(
             command, timeout=timeout, env=env
         )
-    return result.to_dict(fields)
+    return _handle_output_file(result, output_file).to_dict(fields)
 
 
 @mcp.tool()
@@ -240,13 +267,15 @@ async def execute_remote(
     env: dict = None,
     parallel: bool = False,
     fields: dict = None,
+    output_file: str = "",
 ) -> dict | list[dict]:
     """在远程服务器执行命令（SSH，标准 ssh_config 或自定义 .env）。
 
     command: 要执行的命令, 并行用 && 分隔 + parallel=True
     timeout: 超时秒数(-1无限), env: 环境变量
     parallel: 并行执行, fields: 返回字段过滤
-    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo}
+    output_file: 输出过长时指定绝对路径如 D:/project/out.txt，完整 stdout 落盘，返回截断预览
+    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
 
     Example:
         execute_remote("ls -la")
@@ -262,7 +291,7 @@ async def execute_remote(
         return [r.to_dict(fields) for r in results]
 
     result = await _remote_executor.execute(command, timeout=timeout, env=env)
-    return result.to_dict(fields)
+    return _handle_output_file(result, output_file).to_dict(fields)
 
 
 def main():

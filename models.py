@@ -10,6 +10,7 @@ class ExecResult:
     exit_code: int = 0
     duration: float = 0.0
     is_timeout: bool = False
+    output_file: str = ""
 
     def to_dict(self, fields: dict = None) -> dict:
         """按配置过滤返回字段"""

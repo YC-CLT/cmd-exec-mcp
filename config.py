@@ -27,6 +27,7 @@ RESULT_FIELDS = {
     "duration": True,
     "is_timeout": True,
     "command_echo": True,
+    "output_file": True,
 }
 
 # 沙箱模式安全配置（独立于本地模式）
@@ -68,6 +69,9 @@ SSH_CONNECTION_TIMEOUT = 10   # SSH 连接超时秒数
 # 日志
 LOG_FILE = "log.txt"
 LOG_LEVEL = "INFO"
+
+# 输出截断（output_file 参数时，stdout 返回前 N 字符，完整内容落盘）
+OUTPUT_TRUNCATE_LENGTH = 2000
 
 # OpenSandbox 入口脚本（code-interpreter.sh 负责初始化 PATH 和运行时环境）
 SANDBOX_OPEN_ENTRYPOINT = ["/opt/code-interpreter/code-interpreter.sh"]

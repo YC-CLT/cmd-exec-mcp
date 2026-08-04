@@ -26,7 +26,7 @@ def test_force_shell_is_none_or_string():
 
 
 def test_result_fields_has_required_keys():
-    required_keys = {"stdout", "stderr", "exit_code", "duration", "is_timeout", "command_echo"}
+    required_keys = {"stdout", "stderr", "exit_code", "duration", "is_timeout", "command_echo", "output_file"}
     assert set(config.RESULT_FIELDS.keys()) == required_keys
     assert all(isinstance(v, bool) for v in config.RESULT_FIELDS.values())
 

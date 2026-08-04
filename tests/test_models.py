@@ -42,6 +42,7 @@ def test_to_dict_all_fields():
         "exit_code": 0,
         "duration": 0.05,
         "is_timeout": False,
+        "output_file": "",
     }
 
 
