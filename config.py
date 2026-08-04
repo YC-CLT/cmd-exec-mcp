@@ -41,6 +41,15 @@ SANDBOX_DEFAULT_IMAGE = "ubuntu"
 # 挂载目录: None 表示不挂载，调用方可传入 "host_path:container_path"
 SANDBOX_DEFAULT_MOUNT = None
 
+# 沙箱后端: "docker" | "opensandbox"
+SANDBOX_BACKEND = "docker"
+
+# OpenSandbox 后端配置
+SANDBOX_OPEN_TEMPLATE = "opensandbox/code-interpreter:v1.1.0"
+SANDBOX_OPEN_SERVER_HOST = "localhost"
+SANDBOX_OPEN_SERVER_PORT = 8080
+SANDBOX_OPEN_API_KEY = ""  # 生产环境必填，本地开发可留空
+
 # 日志
 LOG_FILE = "log.txt"
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

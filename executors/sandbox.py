@@ -1,9 +1,11 @@
 import asyncio
 import logging
 import os
-import subprocess
 import time
-from config import LOG_FILE, LOG_FORMAT, LOG_DATE_FORMAT
+from config import (
+    LOG_FILE, LOG_FORMAT, LOG_DATE_FORMAT,
+    SANDBOX_DEFAULT_IMAGE, SANDBOX_DEFAULT_MOUNT,
+)
 from executors.base import BaseExecutor
 from models import ExecResult
 
@@ -28,42 +30,39 @@ class SandboxExecutor(BaseExecutor):
         if cwd:
             parts.extend(["-w", cwd])
         parts.append(image)
-        escaped = command.replace('"', '\\"')
-        parts.extend(["sh", "-c", f'"{escaped}"'])
+        parts.extend(["sh", "-c", command])
         return " ".join(parts)
 
-    async def execute(self, command, cwd=None, timeout=None,
-                      env=None, image=None, mount=None):
-        image = image or "ubuntu"
-        docker_cmd = self._build_docker_cmd(command, image, mount, cwd)
+    async def execute(self, command, timeout=None, env=None):
+        image = SANDBOX_DEFAULT_IMAGE
+        docker_cmd = self._build_docker_cmd(command, image, SANDBOX_DEFAULT_MOUNT)
         logger.info("execute: image=%s cmd=%s", image, command)
 
         start = time.time()
-        loop = asyncio.get_running_loop()
-        subprocess_timeout = timeout if timeout is not None and timeout > 0 else None
-
+        proc = await asyncio.create_subprocess_shell(
+            docker_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
         try:
-            result = await loop.run_in_executor(
-                None,
-                lambda: subprocess.run(
-                    docker_cmd,
-                    shell=True,
-                    stdin=subprocess.DEVNULL,
-                    capture_output=True,
-                    timeout=subprocess_timeout,
-                ),
-            )
+            if timeout is not None and timeout > 0:
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(), timeout=timeout
+                )
+            else:
+                stdout, stderr = await proc.communicate()
             result = ExecResult(
                 command_echo=command,
-                stdout=result.stdout.decode(errors="replace"),
-                stderr=result.stderr.decode(errors="replace"),
-                exit_code=result.returncode,
+                stdout=stdout.decode(errors="replace"),
+                stderr=stderr.decode(errors="replace"),
+                exit_code=proc.returncode or 0,
                 duration=round(time.time() - start, 3),
             )
             level = logging.WARNING if result.exit_code != 0 else logging.INFO
             logger.log(level, "exit_code=%s duration=%.3f", result.exit_code, result.duration)
             return result
-        except subprocess.TimeoutExpired:
+        except asyncio.TimeoutError:
+            proc.kill()
             logger.error("timeout: %s", command)
             return ExecResult(
                 command_echo=command,
@@ -72,11 +71,7 @@ class SandboxExecutor(BaseExecutor):
                 exit_code=-1,
             )
 
-    async def execute_batch(self, commands, cwd=None, timeout=None,
-                            env=None, image=None, mount=None):
-        logger.info("execute_batch: %d commands image=%s", len(commands), image or "ubuntu")
-        tasks = [
-            self.execute(cmd, cwd, timeout, env, image, mount)
-            for cmd in commands
-        ]
+    async def execute_batch(self, commands, timeout=None, env=None):
+        logger.info("execute_batch: %d commands image=%s", len(commands), SANDBOX_DEFAULT_IMAGE)
+        tasks = [self.execute(cmd, timeout, env) for cmd in commands]
         return await asyncio.gather(*tasks)
