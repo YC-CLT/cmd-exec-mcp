@@ -59,6 +59,16 @@ SANDBOX_OPEN_SERVER_HOST = "localhost"
 SANDBOX_OPEN_SERVER_PORT = 8080
 SANDBOX_OPEN_API_KEY = "cmd-exec-mcp-dev"  # 生产环境必填，本地开发可留空
 
+# SSH 远程执行配置
+SSH_CONFIG_MODE = "standard"  # "standard" | "custom"
+SSH_HOST_NAME = "rpig"        # standard 模式下指定 Host 别名
+SSH_PERSISTENT = True        # 长连接复用
+SSH_CONNECTION_TIMEOUT = 10   # SSH 连接超时秒数
+
+# 日志
+LOG_FILE = "log.txt"
+LOG_LEVEL = "INFO"
+
 # OpenSandbox 入口脚本（code-interpreter.sh 负责初始化 PATH 和运行时环境）
 SANDBOX_OPEN_ENTRYPOINT = ["/opt/code-interpreter/code-interpreter.sh"]
 
