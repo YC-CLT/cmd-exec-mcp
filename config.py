@@ -16,7 +16,7 @@ DEFAULT_TIMEOUT = -1
 # 工作目录: None 表示项目根目录，受限模式下强制忽略调用方传入的 cwd
 DEFAULT_CWD = None
 
-# 强制指定的 Shell 类型: None 表示自动检测，"pwsh" | "bash" | "cmd" 等
+# 强制指定的 Shell 类型: None 表示自动检测（Win→cmd, Linux→bash），"pwsh" | "bash" | "cmd" 等
 FORCE_SHELL = None
 
 # 返回字段配置，true 表示包含该字段

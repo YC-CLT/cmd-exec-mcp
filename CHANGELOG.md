@@ -1,6 +1,12 @@
 # CHANGELOG
 
-## 2026-08-03 - 黑白名单模式 + Shell 包装修复
+## 2026-08-03 - 黑白名单模式 + Shell 可选 + 修复
+
+### 新增: Shell 参数可选
+- `execute_local` 新增 `shell` 参数，可选 `"pwsh"`|`"cmd"`|`"bash"`
+- Windows 默认 `cmd`（无冷启动开销，~0.15s），需要 `&&` 时传 `shell="pwsh"`
+- Linux 默认 `bash`
+- `wrap_command()` 支持 `shell` 参数覆盖自动检测
 
 ### 新增: COMMAND_LIST_MODE 黑白名单切换
 - `config.py` 新增 `COMMAND_LIST_MODE` / `SANDBOX_COMMAND_LIST_MODE`

@@ -83,13 +83,13 @@ def detect_shell() -> str:
         return config.FORCE_SHELL
     system = platform.system()
     if system == "Windows":
-        return "pwsh"
+        return "cmd"
     return "bash"
 
 
-def wrap_command(command: str) -> str:
-    """根据检测到的 Shell 包装命令。"""
-    shell = detect_shell()
+def wrap_command(command: str, shell: str = None) -> str:
+    """根据检测到的 Shell 包装命令。shell 参数可覆盖自动检测。"""
+    shell = shell or detect_shell()
     if shell == "powershell" or shell == "pwsh":
         escaped = command.replace('"', '\\"')
         return f'pwsh -Command "{escaped}"'
@@ -130,18 +130,21 @@ async def execute_local(
     env: dict = None,
     parallel: bool = False,
     fields: dict = None,
+    shell: str = None,
 ) -> dict | list[dict]:
     """在本地执行命令(restricted模式,白名单:ls/dir/git/python/echo/cat/type/pwd/cd)。
 
     command: 要执行的命令, 并行用 && 分隔 + parallel=True
     cwd: 工作目录, timeout: 超时秒数(-1无限), env: 环境变量
     parallel: 并行执行, fields: 返回字段过滤如 {"stdout": True}
+    shell: 指定 Shell，可选 "pwsh"|"cmd"|"bash"，默认自动检测
     返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo}
 
     Example:
         execute_local("echo hello")
         execute_local("echo one && echo two", parallel=True)
         execute_local("git status", timeout=10)
+        execute_local("echo hello", shell="cmd")
     """
     cwd = resolve_cwd(cwd)
     timeout = resolve_timeout(timeout)
@@ -150,12 +153,12 @@ async def execute_local(
         commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
         for cmd in commands:
             validate_command(cmd)
-        commands = [wrap_command(cmd) for cmd in commands]
+        commands = [wrap_command(cmd, shell) for cmd in commands]
         results = await executor.execute_batch(commands, cwd=cwd, timeout=timeout, env=env)
         return [r.to_dict(fields) for r in results]
 
     validate_command(command)
-    command = wrap_command(command)
+    command = wrap_command(command, shell)
     result = await executor.execute(command, cwd=cwd, timeout=timeout, env=env)
     return result.to_dict(fields)
 
