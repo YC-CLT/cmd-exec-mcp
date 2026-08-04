@@ -17,8 +17,7 @@ def test_default_timeout_is_int():
     assert isinstance(config.DEFAULT_TIMEOUT, int)
 
 
-def test_default_cwd_is_none():
-    assert config.DEFAULT_CWD is None
+
 
 
 def test_force_shell_is_none_or_string():

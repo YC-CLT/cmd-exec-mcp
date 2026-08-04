@@ -13,9 +13,6 @@ COMMAND_BLACKLIST = ["rm", "del", "shutdown", "reboot", "format", "dd"]
 # 默认超时（秒），-1 表示无超时限制，调用方可覆盖
 DEFAULT_TIMEOUT = -1
 
-# 工作目录: None 表示项目根目录，受限模式下强制忽略调用方传入的 cwd
-DEFAULT_CWD = None
-
 # 强制指定的 Shell 类型: None 表示自动检测（Win→cmd, Linux→bash），"pwsh" | "bash" | "cmd" 等
 FORCE_SHELL = None
 
