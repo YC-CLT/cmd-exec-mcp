@@ -1,11 +1,11 @@
 # cmd-exec-mcp
 
-MCP 协议的远程命令执行服务，支持本地执行和 Docker 沙箱隔离执行。
+MCP 协议的远程命令执行服务，支持本地执行、Docker 沙箱和 OpenSandbox 沙箱隔离执行。
 
 ## 功能
 
 - **本地执行** (`execute_local`): 在宿主机执行命令
-- **沙箱执行** (`execute_sandbox`): 在 Docker 容器中隔离执行，用完即焚
+- **沙箱执行** (`execute_sandbox`): 在 Docker 容器或 OpenSandbox 沙箱中隔离执行，用完即焚
 - 安全模式: 受限模式（白名单+黑名单）/ 完全模式
 - 单步/并行执行
 - 超时控制
@@ -41,10 +41,38 @@ uv sync
 | `SECURITY_MODE` | `"restricted"` | 本地安全模式 |
 | `COMMAND_WHITELIST` | `["ls","dir","git",...]` | 本地白名单 |
 | `COMMAND_BLACKLIST` | `["rm","del","shutdown",...]` | 本地黑名单 |
+| `SANDBOX_BACKEND` | `"docker"` | 沙箱后端: `"docker"` \| `"opensandbox"` |
 | `SANDBOX_SECURITY_MODE` | `"full"` | 沙箱安全模式 |
-| `SANDBOX_DEFAULT_IMAGE` | `"ubuntu"` | 沙箱默认镜像 |
+| `SANDBOX_DEFAULT_IMAGE` | `"ubuntu"` | Docker 沙箱默认镜像 |
+| `SANDBOX_OPEN_TEMPLATE` | `"opensandbox/code-interpreter:v1.1.0"` | OpenSandbox 模板镜像 |
+| `SANDBOX_OPEN_SERVER_HOST` | `"localhost"` | OpenSandbox Server 地址 |
+| `SANDBOX_OPEN_SERVER_PORT` | `8080` | OpenSandbox Server 端口 |
+| `SANDBOX_OPEN_API_KEY` | `""` | OpenSandbox API Key（生产必填） |
 | `DEFAULT_TIMEOUT` | `-1` | 超时（-1 无限制） |
 | `LOG_FILE` | `"log.txt"` | 日志文件路径 |
+
+### OpenSandbox 前置条件
+
+如需使用 OpenSandbox 后端 (`SANDBOX_BACKEND = "opensandbox"`)：
+
+1. 前置依赖：Docker Desktop 已安装运行
+
+2. 安装 Server：
+
+   ```bash
+   pip install opensandbox-server
+   ```
+
+3. 配置：
+
+   ```bash
+   copy docs\opensandbox\.sandbox.toml %USERPROFILE%\.sandbox.toml
+   ```
+
+4. 切换后端：编辑 `config.py`，设置 `SANDBOX_BACKEND = "opensandbox"`
+5. 配置 API Key（生产环境必填）：`config.py` 中 `SANDBOX_OPEN_API_KEY`
+
+> 启动时 `main.py` 自动拉起 `opensandbox-server` 子进程，无需手动启动。
 
 ## 工具
 
@@ -74,25 +102,21 @@ uv sync
 
 ### execute_sandbox
 
-在 Docker 容器中执行命令，用完即焚。
+在沙箱中执行命令（Docker/OpenSandbox，由 `SANDBOX_BACKEND` 决定）。
 
 ```json
 {
   "command": "echo hello",
-  "image": "alpine",
-  "mount": "/host:/container",
-  "cwd": "/workspace",
   "parallel": false,
-  "timeout": 30
+  "timeout": 30,
+  "env": { "KEY": "value" },
+  "fields": { "stdout": true, "stderr": false }
 }
 ```
 
 | 参数 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | `command` | str | 必填 | 命令 |
-| `image` | str | ubuntu | Docker 镜像 |
-| `mount` | str | null | 挂载 `host:container` |
-| `cwd` | str | null | 容器内工作目录 |
 | `parallel` | bool | false | 是否并行 |
 | `timeout` | int | -1 | 超时秒数 |
 | `env` | dict | null | 环境变量 |
@@ -108,7 +132,7 @@ uv run pytest tests/ -v
 
 日志写入项目根目录 `log.txt`，格式:
 
-```
+```bash
 2026-07-30 12:00:00 [INFO] local: execute: echo hello
 2026-07-30 12:00:00 [INFO] local: exit_code=0 duration=0.012
 ```
