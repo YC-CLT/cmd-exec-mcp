@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2026-08-05 — WSL shell + pwsh 优化 + output_file 落盘
+
+### 新增：shell="wsl" 选项
+- `wrap_command` 添加 `wsl` 分支：`wsl -d <distro> -u <user> --shell-type standard -- bash -c`
+- `config.py`：`WSL_DISTRO="kali-linux"`, `WSL_USER="kali"` 可配置
+- 单命令 0.25s，4 并发 0.19~0.29s
+
+### 新增：output_file 长输出落盘
+- `_handle_output_file` helper：stdout 超过 `OUTPUT_TRUNCATE_LENGTH(2000)` 截断预览，完整内容落盘
+- 三个工具统一加 `output_file` 参数，AI 传绝对路径精确控制
+- 文件名 basename 消毒防路径穿越
+
+### 优化：pwsh 启动提速
+- `-NoProfile`（跳过 profile 加载，2.1s→0.5s）
+- `-NonInteractive`（关闭交互提示）
+- `$PSStyle.OutputRendering = 'PlainText'`（去 ANSI 转义码）
+- `[console]::OutputEncoding = UTF8Encoding`（UTF-8 输出）
+
+### 测试
+- 55/55 passed
+
 ## 2026-08-05 — cwd 必填 + 安全统一 + describe 精简
 
 ### 变更：cwd 必填 + 移除 DEFAULT_CWD

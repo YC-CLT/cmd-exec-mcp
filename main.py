@@ -113,9 +113,20 @@ def detect_shell() -> str:
 def wrap_command(command: str, shell: str = None) -> str:
     """根据检测到的 Shell 包装命令。shell 参数可覆盖自动检测。"""
     shell = shell or detect_shell()
-    if shell == "powershell" or shell == "pwsh":
+    if shell == "wsl":
+        distro = config.WSL_DISTRO
+        user = config.WSL_USER
+        distro_arg = f"-d {distro} " if distro else ""
         escaped = command.replace('"', '\\"')
-        return f'pwsh -Command "{escaped}"'
+        return f'wsl {distro_arg}-u {user} --shell-type standard -- bash -c "{escaped}"'
+    elif shell == "powershell" or shell == "pwsh":
+        escaped = command.replace('"', '\\"')
+        preamble = (
+            "[console]::InputEncoding = [console]::OutputEncoding = "
+            "New-Object System.Text.UTF8Encoding; "
+            "$PSStyle.OutputRendering = 'PlainText'"
+        )
+        return f'pwsh -NoProfile -NonInteractive -Command "{preamble}; {escaped}"'
     elif shell == "cmd":
         # shell=True 已使用 cmd.exe，无需再包装 cmd /c，避免双层转义
         return command
@@ -170,7 +181,7 @@ async def execute_local(
     command: 要执行的命令, 并行用 && 分隔 + parallel=True
     cwd: 工作目录（必填）, timeout: 超时秒数(-1无限), env: 环境变量
     parallel: 并行执行, fields: 返回字段过滤如 {"stdout": True}
-    shell: 指定 Shell，可选 "pwsh"|"cmd"|"bash"，默认自动检测
+    shell: 指定 Shell，可选 "pwsh"|"cmd"|"bash"|"wsl"，默认自动检测
     output_file: 输出过长时指定绝对路径如 D:/project/out.txt，完整 stdout 落盘，返回截断预览
     返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
 

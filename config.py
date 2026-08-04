@@ -16,6 +16,10 @@ DEFAULT_TIMEOUT = 30
 # 强制指定的 Shell 类型: None 表示自动检测（Win→cmd, Linux→bash），"pwsh" | "bash" | "cmd" 等
 FORCE_SHELL = None
 
+# WSL 配置（shell="wsl" 时生效）
+WSL_DISTRO = "kali-linux"
+WSL_USER = "kali"
+
 # 返回字段配置，true 表示包含该字段
 RESULT_FIELDS = {
     "stdout": True,

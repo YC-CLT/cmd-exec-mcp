@@ -1,7 +1,7 @@
 # tests/test_security.py
 import pytest
 import config
-from main import validate_command, detect_shell
+from main import validate_command, detect_shell, wrap_command
 
 
 class TestValidateCommand:
@@ -44,6 +44,13 @@ class TestDetectShell:
         monkeypatch.setattr(config, "FORCE_SHELL", None)
         shell = detect_shell()
         assert shell in ("powershell", "bash", "cmd")
+
+    def test_wsl_shell_wrapping(self, monkeypatch):
+        monkeypatch.setattr(config, "WSL_DISTRO", "kali-linux")
+        monkeypatch.setattr(config, "WSL_USER", "kali")
+        result = wrap_command("docker ps", shell="wsl")
+        assert "wsl -d kali-linux -u kali --shell-type standard -- bash -c" in result
+        assert "docker ps" in result
 
 
 class TestSingleton:

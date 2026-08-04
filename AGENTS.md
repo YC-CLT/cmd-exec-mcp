@@ -35,6 +35,9 @@
 | `SSH_CONFIG_MODE` | config.py | SSH 配置模式 standard/custom |
 | `SSH_HOST_NAME` | config.py | standard 模式 SSH Host 别名 |
 | `SSH_PERSISTENT` | config.py | 长连接复用开关 |
+| `WSL_DISTRO` | config.py | WSL 发行版名（shell="wsl" 时生效） |
+| `WSL_USER` | config.py | WSL 用户名（shell="wsl" 时生效） |
+| `OUTPUT_TRUNCATE_LENGTH` | config.py | output_file 截断长度 |
 
 ## 规则
 
@@ -85,3 +88,7 @@
 - **asyncssh.connect 原生支持 ssh_config**：`asyncssh.connect(host=alias, config=[~/.ssh/config])` 直接读取 Host 别名
 - **RemoteExecutor 长连接模式**：`SSH_PERSISTENT=True` 时检查 `is_closed()` 决定复用/重连，非持久模式 `finally` 中 close
 - **Python 3.11 asyncio proactor warning**：Windows 已知 bug，不影响测试结果
+- **wsl.exe 管道 UTF-16LE 乱码**：`wsl` 直接管道输出是 UTF-16LE，用 `--shell-type standard` 替代 `-lc`（login shell）可解决，且速度更快
+- **pwsh 冷启动 ~2s 是因为 profile**：`-NoProfile` 跳过模块加载（posh-git/oh-my-posh 等），降到 0.5s；`-NonInteractive` 关闭交互提示；`$PSStyle.OutputRendering = 'PlainText'` 去 ANSI
+- **WSL 用 `--shell-type standard` 不用 `-lc`**：`-lc`（login shell）触发 profile 加载，慢且编码乱；`--shell-type standard` + `-c` 干净快速
+- **output_file 路径由 AI 控制**：传绝对路径如 `D:/project/out.txt`，不依赖 MCP 进程的 cwd；文件名 basename 消毒防路径穿越
