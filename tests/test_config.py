@@ -31,6 +31,5 @@ def test_result_fields_has_required_keys():
     assert all(isinstance(v, bool) for v in config.RESULT_FIELDS.values())
 
 
-def test_singleton_lock_file():
-    assert isinstance(config.SINGLETON_LOCK_FILE, str)
-    assert config.SINGLETON_LOCK_FILE.endswith(".lock")
+def test_command_list_mode_is_valid():
+    assert config.COMMAND_LIST_MODE in ("whitelist", "blacklist")

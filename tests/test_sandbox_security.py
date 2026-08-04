@@ -15,6 +15,7 @@ class TestValidateSandboxCommand:
 
     def test_whitelist_only_allows_listed(self, monkeypatch):
         monkeypatch.setattr(config, "SANDBOX_SECURITY_MODE", "restricted")
+        monkeypatch.setattr(config, "SANDBOX_COMMAND_LIST_MODE", "whitelist")
         monkeypatch.setattr(config, "SANDBOX_COMMAND_WHITELIST", ["echo"])
         validate_sandbox_command("echo hello")
         with pytest.raises(ValueError, match="whitelist"):

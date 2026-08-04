@@ -1,4 +1,5 @@
 # main.py
+import atexit
 import os
 import platform
 import subprocess
@@ -9,11 +10,10 @@ from config import (
     SANDBOX_SECURITY_MODE,
     SANDBOX_COMMAND_WHITELIST,
     SANDBOX_COMMAND_BLACKLIST,
-    SANDBOX_DEFAULT_IMAGE,
-    SANDBOX_DEFAULT_MOUNT,
 )
 from executors.local import LocalExecutor
 from executors.sandbox import SandboxExecutor
+from executors.opensandbox import OpenSandboxExecutor
 from fastmcp import FastMCP
 
 
@@ -120,6 +120,19 @@ def resolve_timeout(timeout: int) -> int | None:
 mcp = FastMCP("cmd-exec-mcp")
 executor = LocalExecutor()
 sandbox = SandboxExecutor()
+opensandbox = OpenSandboxExecutor()
+_opensandbox_server_started = False
+
+
+def start_opensandbox_server():
+    """启动 opensandbox-server 子进程。"""
+    proc = subprocess.Popen(
+        ["opensandbox-server"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    atexit.register(lambda: proc.terminate())
+    return proc
 
 
 @mcp.tool()
@@ -166,18 +179,14 @@ async def execute_local(
 @mcp.tool()
 async def execute_sandbox(
     command: str,
-    image: str = None,
-    cwd: str = None,
-    mount: str = None,
     timeout: int = None,
     env: dict = None,
     parallel: bool = False,
     fields: dict = None,
 ) -> dict | list[dict]:
-    """在Docker沙箱执行命令(full模式,需本地Docker,默认ubuntu镜像)。
+    """在沙箱中执行命令（Docker/OpenSandbox，由 SANDBOX_BACKEND 决定）。
 
     command: 容器内命令, 并行用 && 分隔 + parallel=True
-    image: 镜像(默认ubuntu), cwd: 容器内工作目录, mount: 挂载 host:container
     timeout: 超时秒数(-1无限), env: 容器内环境变量
     parallel: 并行执行(每个命令独立容器), fields: 返回字段过滤
     返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo}
@@ -185,26 +194,38 @@ async def execute_sandbox(
     Example:
         execute_sandbox("echo hello")
         execute_sandbox("whoami && uname -a")
-        execute_sandbox("ls /data", mount="d:/data:/data", image="python:3.11")
+        execute_sandbox("pip install numpy && python -c 'import numpy'", timeout=120)
     """
-    image = image or SANDBOX_DEFAULT_IMAGE
+    global _opensandbox_server_started
     timeout = resolve_timeout(timeout)
+
+    if config.SANDBOX_BACKEND == "opensandbox" and not _opensandbox_server_started:
+        start_opensandbox_server()
+        _opensandbox_server_started = True
 
     if parallel:
         commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
-        for cmd in commands:
-            validate_sandbox_command(cmd)
-        results = await sandbox.execute_batch(
-            commands, cwd=cwd, timeout=timeout, env=env,
-            image=image, mount=mount
-        )
+        if config.SANDBOX_BACKEND == "docker":
+            for cmd in commands:
+                validate_sandbox_command(cmd)
+            results = await sandbox.execute_batch(
+                commands, timeout=timeout, env=env
+            )
+        else:
+            results = await opensandbox.execute_batch(
+                commands, timeout=timeout, env=env
+            )
         return [r.to_dict(fields) for r in results]
 
-    validate_sandbox_command(command)
-    result = await sandbox.execute(
-        command, cwd=cwd, timeout=timeout, env=env,
-        image=image, mount=mount
-    )
+    if config.SANDBOX_BACKEND == "docker":
+        validate_sandbox_command(command)
+        result = await sandbox.execute(
+            command, timeout=timeout, env=env
+        )
+    else:
+        result = await opensandbox.execute(
+            command, timeout=timeout, env=env
+        )
     return result.to_dict(fields)
 
 

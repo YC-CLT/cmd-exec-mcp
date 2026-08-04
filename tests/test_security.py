@@ -16,6 +16,7 @@ class TestValidateCommand:
 
     def test_not_whitelisted_command_raises(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
+        monkeypatch.setattr(config, "COMMAND_LIST_MODE", "whitelist")
         with pytest.raises(ValueError, match="whitelist"):
             validate_command("unknown_command arg")
 
@@ -62,3 +63,42 @@ class TestSingleton:
 
         with pytest.raises(SystemExit):
             ensure_single_instance()
+
+
+class TestSandboxBackendRouting:
+    @pytest.mark.asyncio
+    async def test_docker_backend_calls_sandbox_executor(self, monkeypatch):
+        monkeypatch.setattr(config, "SANDBOX_BACKEND", "docker")
+        monkeypatch.setattr(config, "SANDBOX_SECURITY_MODE", "full")
+
+        called_with = None
+        async def mock_execute(command, timeout=None, env=None):
+            nonlocal called_with
+            called_with = command
+            from models import ExecResult
+            return ExecResult(command_echo=command)
+
+        import main
+        monkeypatch.setattr(main.sandbox, "execute", mock_execute)
+
+        await main.execute_sandbox("echo docker")
+        assert called_with == "echo docker"
+
+    @pytest.mark.asyncio
+    async def test_opensandbox_backend_calls_opensandbox_executor(self, monkeypatch):
+        monkeypatch.setattr(config, "SANDBOX_BACKEND", "opensandbox")
+
+        called_with = None
+        async def mock_execute(command, timeout=None, env=None):
+            nonlocal called_with
+            called_with = command
+            from models import ExecResult
+            return ExecResult(command_echo=command)
+
+        import main
+        monkeypatch.setattr(main, "start_opensandbox_server", lambda: None)
+        monkeypatch.setattr(main, "_opensandbox_server_started", False)
+        monkeypatch.setattr(main.opensandbox, "execute", mock_execute)
+
+        await main.execute_sandbox("echo opensandbox")
+        assert called_with == "echo opensandbox"
