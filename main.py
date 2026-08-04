@@ -42,7 +42,7 @@ def ensure_single_instance():
 
 
 def validate_command(command: str):
-    """校验命令是否允许执行。受限模式下检查白名单/黑名单，完全模式放行。"""
+    """校验命令是否允许执行。受限模式下检查，完全模式放行。"""
     if config.SECURITY_MODE == "full":
         return
 
@@ -53,7 +53,7 @@ def validate_command(command: str):
             f"Show the command to user for manual copy-paste instead."
         )
 
-    if cmd_name not in config.COMMAND_WHITELIST:
+    if config.COMMAND_LIST_MODE == "whitelist" and cmd_name not in config.COMMAND_WHITELIST:
         raise ValueError(
             f"Command '{cmd_name}' is not in whitelist, execution denied. "
             f"Allowed commands: {config.COMMAND_WHITELIST}"
@@ -71,7 +71,7 @@ def validate_sandbox_command(command: str):
             f"Command '{cmd_name}' is in sandbox blacklist, execution denied. "
             f"Show the command to user for manual copy-paste instead."
         )
-    if config.SANDBOX_COMMAND_WHITELIST and cmd_name not in config.SANDBOX_COMMAND_WHITELIST:
+    if config.SANDBOX_COMMAND_LIST_MODE == "whitelist" and config.SANDBOX_COMMAND_WHITELIST and cmd_name not in config.SANDBOX_COMMAND_WHITELIST:
         raise ValueError(
             f"Command '{cmd_name}' is not in sandbox whitelist, execution denied"
         )
@@ -83,19 +83,22 @@ def detect_shell() -> str:
         return config.FORCE_SHELL
     system = platform.system()
     if system == "Windows":
-        return "powershell"
+        return "pwsh"
     return "bash"
 
 
 def wrap_command(command: str) -> str:
     """根据检测到的 Shell 包装命令。"""
     shell = detect_shell()
-    if shell == "powershell":
-        return command
+    if shell == "powershell" or shell == "pwsh":
+        escaped = command.replace('"', '\\"')
+        return f'pwsh -Command "{escaped}"'
     elif shell == "cmd":
-        return command
+        escaped = command.replace('"', '\\"')
+        return f'cmd /c "{escaped}"'
     else:
-        return command
+        escaped = command.replace("'", "'\\''")
+        return f"bash -c '{escaped}'"
 
 
 def resolve_cwd(cwd: str) -> str:
@@ -147,6 +150,7 @@ async def execute_local(
         commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
         for cmd in commands:
             validate_command(cmd)
+        commands = [wrap_command(cmd) for cmd in commands]
         results = await executor.execute_batch(commands, cwd=cwd, timeout=timeout, env=env)
         return [r.to_dict(fields) for r in results]
 

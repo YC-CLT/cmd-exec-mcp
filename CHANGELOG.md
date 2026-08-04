@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2026-08-03 - 黑白名单模式 + Shell 包装修复
+
+### 新增: COMMAND_LIST_MODE 黑白名单切换
+- `config.py` 新增 `COMMAND_LIST_MODE` / `SANDBOX_COMMAND_LIST_MODE`
+- `"whitelist"`: 仅白名单命令可执行（黑名单仍然拦截）
+- `"blacklist"`: 仅黑名单拦截，其余放行，默认值
+- 影响：`validate_command()`, `validate_sandbox_command()`
+
+### 修复: wrap_command 实际生效
+- `wrap_command()` 从 no-op 改为真正包装 Shell 前缀
+- Windows 默认 `pwsh -Command "..."`(支持 `&&`)，Linux 默认 `bash -c '...'`
+- 并行模式也走 `wrap_command` 包装
+- 内部双引号正确转义（pwsh/cmd: `\"`, bash: `'\''`）
+
+### 移除: SINGLETON_LOCK_FILE 废案
+- 单例锁机制已废弃，改为 `ensure_single_instance()` 直接检查 PID
+
 ## 2026-08-03 - 执行器重构 + 文档优化
 
 ### 修复: Windows 管道句柄继承导致子进程挂起

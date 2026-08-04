@@ -91,3 +91,4 @@
 - **fastmcp 3.x API 内部属性不可用**：`mcp._tool_manager._tools` 不存在，验证工具列表用 `await mcp.list_tools()`（async 方法，需 `asyncio.run` 包裹）
 - **Docker sh -c 命令引号**：`" ".join(parts)` 拼接 docker 命令时 `sh -c` 后的命令必须用双引号包裹，否则只有第一个词被当作命令执行。`shlex.quote()` 输出单引号，Windows cmd.exe 不认，需手动双引号 + 转义内部双引号
 - **Windows 管道句柄继承**：`asyncio.create_subprocess_shell` 在 Windows 上创建的管道句柄可被孙子进程继承，导致 `communicate()` 读不到 EOF 永久阻塞。改用 `loop.run_in_executor` + `subprocess.run(stdin=DEVNULL, capture_output=True)`，`subprocess.Popen` 默认 `close_fds=True` 用 `PROC_THREAD_ATTRIBUTE_HANDLE_LIST` 防句柄泄漏
+- **pwsh 冷启动 ~2s**：`pwsh -Command` 每次启动有冷启动开销，单条命令耗时 ~2s。Windows 默认 Shell 是 pwsh 而不是 powershell，因为 powershell 5.1 不支持 `&&`
