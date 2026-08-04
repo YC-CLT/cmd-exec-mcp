@@ -94,8 +94,8 @@ def wrap_command(command: str, shell: str = None) -> str:
         escaped = command.replace('"', '\\"')
         return f'pwsh -Command "{escaped}"'
     elif shell == "cmd":
-        escaped = command.replace('"', '\\"')
-        return f'cmd /c "{escaped}"'
+        # shell=True 已使用 cmd.exe，无需再包装 cmd /c，避免双层转义
+        return command
     else:
         escaped = command.replace("'", "'\\''")
         return f"bash -c '{escaped}'"

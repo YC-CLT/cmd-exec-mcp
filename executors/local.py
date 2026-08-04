@@ -3,6 +3,7 @@ import asyncio
 import logging
 import os
 import subprocess
+import sys
 import time
 from config import LOG_FILE, LOG_FORMAT, LOG_DATE_FORMAT
 from executors.base import BaseExecutor
@@ -22,6 +23,38 @@ logger = logging.getLogger("local")
 
 
 class LocalExecutor(BaseExecutor):
+    @staticmethod
+    def _kill_process_tree(pid):
+        if sys.platform == "win32":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+            )
+
+    def _run_with_timeout(self, command, cwd, env, timeout):
+        proc = subprocess.Popen(
+            command,
+            shell=True,
+            cwd=cwd,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+            return (
+                stdout.decode(errors="replace"),
+                stderr.decode(errors="replace"),
+                proc.returncode or 0,
+            )
+        except subprocess.TimeoutExpired:
+            self._kill_process_tree(proc.pid)
+            proc.kill()
+            proc.wait()
+            raise
+
     async def execute(self, command, cwd=None, timeout=None, env=None):
         logger.info("execute: %s", command)
         start = time.time()
@@ -29,24 +62,22 @@ class LocalExecutor(BaseExecutor):
         loop = asyncio.get_running_loop()
         subprocess_timeout = timeout if timeout is not None and timeout > 0 else None
 
+        merged_env = os.environ.copy()
+        if env:
+            merged_env.update(env)
+
         try:
-            result = await loop.run_in_executor(
+            stdout, stderr, returncode = await loop.run_in_executor(
                 None,
-                lambda: subprocess.run(
-                    command,
-                    shell=True,
-                    cwd=cwd,
-                    env=env,
-                    stdin=subprocess.DEVNULL,
-                    capture_output=True,
-                    timeout=subprocess_timeout,
+                lambda: self._run_with_timeout(
+                    command, cwd, merged_env, subprocess_timeout
                 ),
             )
             result = ExecResult(
                 command_echo=command,
-                stdout=result.stdout.decode(errors="replace"),
-                stderr=result.stderr.decode(errors="replace"),
-                exit_code=result.returncode,
+                stdout=stdout,
+                stderr=stderr,
+                exit_code=returncode,
                 duration=round(time.time() - start, 3),
             )
             level = logging.WARNING if result.exit_code != 0 else logging.INFO

@@ -106,3 +106,6 @@
 - **sys.modules mock 对已导入模块无效**：已在内存的模块不重载，用 `monkeypatch.setattr(executor_module, "SDKClass", mock_cls)` 直接打补丁
 - **logging.basicConfig 只生效一次**：Python logging 的 basicConfig 只在首次调用生效，后续调用是 no-op
 - **opensandbox SDK 超时**：`Sandbox.create()` 的 timeout 接受 `timedelta` 或 `None`，`-1` 需转为 `None`
+- **cmd /c 双层包装**：`subprocess.run(shell=True)` 在 Windows 上已走 `cmd.exe /c`，`wrap_command` 不应再包一层 `cmd /c`，否则引号双层转义导致命令断裂
+- **env 全覆盖陷阱**：`subprocess.run(env=user_env)` 替换整个环境变量，PATH 丢失致 `chcp` 等命令找不到，应先 `os.environ.copy()` 再 `.update()`
+- **Windows 超时进程树残留**：`subprocess.run(timeout=N)` 只杀 `cmd.exe`，子进程残留导致 `run()` 迟迟不返回，改用 `Popen` + `communicate(timeout=...)` + `taskkill /F /T /PID` 杀进程树

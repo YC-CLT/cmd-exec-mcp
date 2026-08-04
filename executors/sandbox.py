@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+import subprocess
+import sys
 import time
 from config import (
     LOG_FILE, LOG_FORMAT, LOG_DATE_FORMAT,
@@ -33,36 +35,61 @@ class SandboxExecutor(BaseExecutor):
         parts.extend(["sh", "-c", command])
         return " ".join(parts)
 
+    @staticmethod
+    def _kill_process_tree(pid):
+        if sys.platform == "win32":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+            )
+
+    def _run_with_timeout(self, docker_cmd, timeout):
+        proc = subprocess.Popen(
+            docker_cmd,
+            shell=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+            return (
+                stdout.decode(errors="replace"),
+                stderr.decode(errors="replace"),
+                proc.returncode or 0,
+            )
+        except subprocess.TimeoutExpired:
+            self._kill_process_tree(proc.pid)
+            proc.kill()
+            proc.wait()
+            raise
+
     async def execute(self, command, timeout=None, env=None):
         image = SANDBOX_DEFAULT_IMAGE
         docker_cmd = self._build_docker_cmd(command, image, SANDBOX_DEFAULT_MOUNT)
         logger.info("execute: image=%s cmd=%s", image, command)
 
         start = time.time()
-        proc = await asyncio.create_subprocess_shell(
-            docker_cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        loop = asyncio.get_running_loop()
+        subprocess_timeout = timeout if timeout is not None and timeout > 0 else None
+
         try:
-            if timeout is not None and timeout > 0:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=timeout
-                )
-            else:
-                stdout, stderr = await proc.communicate()
+            stdout, stderr, returncode = await loop.run_in_executor(
+                None,
+                lambda: self._run_with_timeout(docker_cmd, subprocess_timeout),
+            )
             result = ExecResult(
                 command_echo=command,
-                stdout=stdout.decode(errors="replace"),
-                stderr=stderr.decode(errors="replace"),
-                exit_code=proc.returncode or 0,
+                stdout=stdout,
+                stderr=stderr,
+                exit_code=returncode,
                 duration=round(time.time() - start, 3),
             )
             level = logging.WARNING if result.exit_code != 0 else logging.INFO
             logger.log(level, "exit_code=%s duration=%.3f", result.exit_code, result.duration)
             return result
-        except asyncio.TimeoutError:
-            proc.kill()
+        except subprocess.TimeoutExpired:
             logger.error("timeout: %s", command)
             return ExecResult(
                 command_echo=command,

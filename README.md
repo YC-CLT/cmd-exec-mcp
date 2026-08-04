@@ -57,22 +57,22 @@ uv sync
 
 1. 前置依赖：Docker Desktop 已安装运行
 
-2. 安装 Server：
+2. 安装 Server（全局）：
 
    ```bash
-   pip install opensandbox-server
+   uv tool install opensandbox-server
    ```
 
-3. 配置：
+3. 部署配置：
 
    ```bash
    copy docs\opensandbox\.sandbox.toml %USERPROFILE%\.sandbox.toml
    ```
 
-4. 切换后端：编辑 `config.py`，设置 `SANDBOX_BACKEND = "opensandbox"`
-5. 配置 API Key（生产环境必填）：`config.py` 中 `SANDBOX_OPEN_API_KEY`
+3. 切换后端：`config.py` → `SANDBOX_BACKEND = "opensandbox"`
+4. API Key：本地开发留空即可，生产环境设 `SANDBOX_OPEN_API_KEY`
 
-> 启动时 `main.py` 自动拉起 `opensandbox-server` 子进程，无需手动启动。
+> 首次调用 `execute_sandbox` 时自动拉起 `opensandbox-server`，`atexit` 自动清理。
 
 ## 工具
 

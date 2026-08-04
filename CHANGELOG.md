@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-08-04 — MCP 功能测试 + 解析/超时修复
+
+### 修复：wrap_command cmd 双层包装
+- `wrap_command` 对 cmd 模式做了 `cmd /c "..."` 包装，但 `subprocess.run(shell=True)` 已走 cmd.exe
+- 导致 `python -c "exit(1)"` 被双层转义变成语法错误，exit_code 误报 0
+- 修复：cmd 模式下直接返回原始命令，不再包装
+
+### 修复：env 参数全覆盖
+- `LocalExecutor` 把 `env` 直接传给 `subprocess.run(env=env)`，替换整个环境导致 PATH 丢失
+- 修复：先 `os.environ.copy()` 再 `merged_env.update(env)`
+
+### 修复：Sandbox 管道句柄继承
+- `SandboxExecutor` 使用 `asyncio.create_subprocess_shell`，Docker 容器继承管道句柄导致 `communicate()` 卡死
+- 修复：对齐 `LocalExecutor`，改用 `loop.run_in_executor` + `subprocess.run(stdin=DEVNULL, capture_output=True)`
+
+### 修复：超时进程树 kill
+- `subprocess.run(timeout=N)` 在 Windows 上只杀 cmd.exe，子进程（ping.exe）残留
+- 修复：`Popen` + `communicate(timeout=...)`，超时时 `taskkill /F /T /PID` 杀进程树
+- 效果：`ping -n 10` timeout=2s，耗时从 9.2s → 2.2s
+
+### 测试
+- 全量 43/43 passed
+- MCP 验证：`execute_local` 基本命令/并行/env/fields 过滤/超时 均通过
+- MCP 验证：`execute_sandbox` Docker 沙箱 `whoami && uname -a` 通过
+
 ## 2026-08-04 — OpenSandbox 集成
 
 ### 新增：OpenSandbox 沙箱后端
