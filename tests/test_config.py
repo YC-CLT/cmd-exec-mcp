@@ -33,3 +33,15 @@ def test_result_fields_has_required_keys():
 
 def test_command_list_mode_is_valid():
     assert config.COMMAND_LIST_MODE in ("whitelist", "blacklist")
+
+
+def test_ssh_config_mode_is_valid():
+    assert config.SSH_CONFIG_MODE in ("standard", "custom")
+
+
+def test_ssh_persistent_is_bool():
+    assert isinstance(config.SSH_PERSISTENT, bool)
+
+
+def test_ssh_connection_timeout_is_positive():
+    assert config.SSH_CONNECTION_TIMEOUT > 0

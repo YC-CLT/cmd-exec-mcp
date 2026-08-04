@@ -14,6 +14,7 @@ from config import (
 from executors.local import LocalExecutor
 from executors.sandbox import SandboxExecutor
 from executors.opensandbox import OpenSandboxExecutor
+from executors.remote import RemoteExecutor
 from fastmcp import FastMCP
 
 
@@ -121,6 +122,7 @@ mcp = FastMCP("cmd-exec-mcp")
 executor = LocalExecutor()
 sandbox = SandboxExecutor()
 opensandbox = OpenSandboxExecutor()
+_remote_executor = RemoteExecutor()
 _opensandbox_server_started = False
 
 
@@ -228,6 +230,38 @@ async def execute_sandbox(
         result = await opensandbox.execute(
             command, timeout=timeout, env=env
         )
+    return result.to_dict(fields)
+
+
+@mcp.tool()
+async def execute_remote(
+    command: str,
+    timeout: int = None,
+    env: dict = None,
+    parallel: bool = False,
+    fields: dict = None,
+) -> dict | list[dict]:
+    """在远程服务器执行命令（SSH，标准 ssh_config 或自定义 .env）。
+
+    command: 要执行的命令, 并行用 && 分隔 + parallel=True
+    timeout: 超时秒数(-1无限), env: 环境变量
+    parallel: 并行执行, fields: 返回字段过滤
+    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo}
+
+    Example:
+        execute_remote("ls -la")
+        execute_remote("whoami && uname -a", parallel=True)
+        execute_remote("docker ps", timeout=10)
+    """
+    global _remote_executor
+    timeout = resolve_timeout(timeout)
+
+    if parallel:
+        commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
+        results = await _remote_executor.execute_batch(commands, timeout=timeout, env=env)
+        return [r.to_dict(fields) for r in results]
+
+    result = await _remote_executor.execute(command, timeout=timeout, env=env)
     return result.to_dict(fields)
 
 
