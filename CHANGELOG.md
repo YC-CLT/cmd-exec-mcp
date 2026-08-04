@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-08-05 — OpenSandbox 环境修复 + 换源
+
+### 修复：OpenSandbox Python 不可用
+- **根因**：`Sandbox.create()` 默认 `entrypoint=["tail", "-f", "/dev/null"]`，跳过了 `code-interpreter.sh` 环境初始化脚本，导致 Python 不在 PATH
+- **修复**：设置 `entrypoint=["/opt/code-interpreter/code-interpreter.sh"]`，传入 `PYTHON_VERSION`/`JAVA_VERSION`/`NODE_VERSION`/`GO_VERSION` 环境变量
+- 来源：官方文档 `https://open-sandbox.ai/sdks/code-interpreter/python`
+
+### 新增：OpenSandbox 国内镜像加速
+- `SANDBOX_OPEN_RUNTIME_ENV` 追加 `PIP_INDEX_URL`（阿里云）、`NPM_CONFIG_REGISTRY`（npmmirror）、`GOPROXY`（goproxy.cn）
+- 通过 `Sandbox.create(env=...)` 注入容器，比 Docker 后端的命令前缀更干净
+
+### 验证
+- MCP 实测：`python -V` / `node -v` / `go version` 全部通过
+- `pip install requests --break-system-packages` 成功（PEP 668 uv 管理环境）
+- 全量 43/43 passed
+
 ## 2026-08-04 — MCP 功能测试 + 解析/超时修复
 
 ### 修复：wrap_command cmd 双层包装

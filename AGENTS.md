@@ -92,12 +92,13 @@
 
 ## 经验/坑点
 
-- **WebSearch 污染**：同名库易被无关结果淹没，优先用 `wet-mcp search`
-- **wet-mcp 提取 GitHub**：直接抓可能只拿到 license，应提取 raw 原始文件
-- **GitHub raw 下载**：WebFetch 对 raw.githubusercontent.com 返回失败，用 `Invoke-WebRequest` 或 `wet-mcp extract`
-- **Temp 目录不可读**：Read 工具无法访问 `D:\Temp`，MCP 长输出需 Copy-Item 到项目根目录
+- **WebFetch 无法使用**：用 `Invoke-WebRequest` 或 `wet-mcp extract`
+- **Temp 目录不可读**：Read 工具无法访问 `D:\Temp`，MCP 长输出需 Copy-Item 到项目根目录，然后正则替换`\n`为`\\n`，否则将输出超长行
 - **uv pip install 污染宿主 venv**：有 `.python-version` 的项目必须用 `uv sync` 创建隔离环境
 - **Windows shell 单引号陷阱**：cmd.exe 不认单引号，跨平台测试命令一律用双引号
+- **OpenSandbox entrypoint 陷阱**：`Sandbox.create()` 默认 entrypoint 是 `["tail", "-f", "/dev/null"]`，不执行 `code-interpreter.sh` 会导致 Python 等运行时不在 PATH。必须显式传 `entrypoint=["/opt/code-interpreter/code-interpreter.sh"]` + `env` 版本变量
+- **OpenSandbox env 注入优于命令前缀**：镜像源等环境变量通过 `Sandbox.create(env=...)` 注入，pip/npm/go 自动识别，比 Docker 后端 `--entrypoint bash -lc "export...; cmd"` 更干净
+- **官方文档优先于猜测**：OpenSandbox 的正确用法在 `open-sandbox.ai/sdks/code-interpreter/python`，不在本地 docs/ 里。
 - **Python 3.11 asyncio proactor warning**：Windows 已知 bug，不影响测试结果
 - **fastmcp 3.x API 内部属性不可用**：`mcp._tool_manager._tools` 不存在，用 `await mcp.list_tools()`
 - **Docker sh -c 命令引号**：`sh -c` 后的命令必须双引号包裹，`shlex.quote()` 输出单引号不兼容 Windows
