@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import time
+import config
 from config import (
     LOG_FILE, LOG_FORMAT, LOG_DATE_FORMAT,
     SANDBOX_DEFAULT_IMAGE, SANDBOX_DEFAULT_MOUNT,
@@ -26,13 +27,14 @@ logger = logging.getLogger("sandbox")
 
 class SandboxExecutor(BaseExecutor):
     def _build_docker_cmd(self, command, image, mount=None, cwd=None):
-        parts = ["docker", "run", "--rm", "-i"]
+        parts = ["docker", "run", "--rm", "-i", "--entrypoint", "bash"]
         if mount:
             parts.extend(["-v", mount])
         if cwd:
             parts.extend(["-w", cwd])
         parts.append(image)
-        parts.extend(["sh", "-c", command])
+        prefix = getattr(config, "SANDBOX_DOCKER_PREFIX", "")
+        parts.append(f'-lc "{prefix}{command}"')
         return " ".join(parts)
 
     @staticmethod

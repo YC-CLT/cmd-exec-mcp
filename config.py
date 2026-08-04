@@ -36,10 +36,19 @@ SANDBOX_COMMAND_WHITELIST = []
 SANDBOX_COMMAND_BLACKLIST = ["docker", "mount", "fdisk"]
 
 # Docker 镜像，默认 ubuntu，调用方可覆盖
-SANDBOX_DEFAULT_IMAGE = "ubuntu"
+SANDBOX_DEFAULT_IMAGE = "opensandbox/code-interpreter:v1.1.0"
 
 # 挂载目录: None 表示不挂载，调用方可传入 "host_path:container_path"
 SANDBOX_DEFAULT_MOUNT = None
+
+# Docker 沙箱命令前缀：换源 + python alias（bash -lc 执行前拼接）
+SANDBOX_DOCKER_PREFIX = (
+    "export PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/; "
+    "export NPM_CONFIG_REGISTRY=https://registry.npmmirror.com; "
+    "export GOPROXY=https://goproxy.cn,direct; "
+    "ln -sf $HOME/.local/bin/python3.14 $HOME/.local/bin/python 2>/dev/null; "
+    "ln -sf /opt/python/versions/cpython-3.14-linux-x86_64-gnu/bin/pip3.14 $HOME/.local/bin/pip 2>/dev/null; "
+)
 
 # 沙箱后端: "docker" | "opensandbox"
 SANDBOX_BACKEND = "docker"

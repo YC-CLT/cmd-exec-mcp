@@ -1,4 +1,5 @@
 import pytest
+import config
 from executors.sandbox import SandboxExecutor
 
 
@@ -6,7 +7,8 @@ class TestBuildDockerCmd:
     def test_basic_command(self):
         executor = SandboxExecutor()
         cmd = executor._build_docker_cmd("echo hello", "ubuntu")
-        assert cmd == "docker run --rm -i ubuntu sh -c echo hello"
+        prefix = getattr(config, "SANDBOX_DOCKER_PREFIX", "")
+        assert cmd == f'docker run --rm -i --entrypoint bash ubuntu -lc "{prefix}echo hello"'
 
     def test_custom_image(self):
         executor = SandboxExecutor()
