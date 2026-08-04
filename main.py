@@ -126,8 +126,10 @@ _opensandbox_server_started = False
 
 def start_opensandbox_server():
     """启动 opensandbox-server 子进程。"""
+    config_path = os.path.join(os.path.dirname(__file__), "docs", "opensandbox", ".sandbox.toml")
     proc = subprocess.Popen(
-        ["opensandbox-server"],
+        ["opensandbox-server", "--config", config_path],
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
