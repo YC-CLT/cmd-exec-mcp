@@ -124,13 +124,6 @@ def wrap_command(command: str, shell: str = None) -> str:
         return f"bash -c '{escaped}'"
 
 
-def resolve_cwd(cwd: str) -> str:
-    """解析工作目录。受限模式下强制使用默认值。"""
-    if config.SECURITY_MODE == "restricted":
-        return config.DEFAULT_CWD
-    return cwd if cwd is not None else config.DEFAULT_CWD
-
-
 def resolve_timeout(timeout: int) -> int | None:
     """解析超时值。None 用默认值，-1 表示无限制。"""
     if timeout is None:
@@ -164,7 +157,7 @@ def start_opensandbox_server():
 @mcp.tool()
 async def execute_local(
     command: str,
-    cwd: str = None,
+    cwd: str,
     timeout: int = None,
     env: dict = None,
     parallel: bool = False,
@@ -172,23 +165,22 @@ async def execute_local(
     shell: str = None,
     output_file: str = "",
 ) -> dict | list[dict]:
-    """在本地执行命令(restricted模式,白名单:ls/dir/git/python/echo/cat/type/pwd/cd)。
+    """在本地执行命令（受限模式黑白名单校验，完全模式放行）。
 
     command: 要执行的命令, 并行用 && 分隔 + parallel=True
-    cwd: 工作目录, timeout: 超时秒数(-1无限), env: 环境变量
+    cwd: 工作目录（必填）, timeout: 超时秒数(-1无限), env: 环境变量
     parallel: 并行执行, fields: 返回字段过滤如 {"stdout": True}
     shell: 指定 Shell，可选 "pwsh"|"cmd"|"bash"，默认自动检测
     output_file: 输出过长时指定绝对路径如 D:/project/out.txt，完整 stdout 落盘，返回截断预览
     返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
 
     Example:
-        execute_local("echo hello")
-        execute_local("echo one && echo two", parallel=True)
-        execute_local("git status", timeout=10)
-        execute_local("echo hello", shell="cmd")
-        execute_local("cat huge.log", output_file="D:/myproject/huge_log.txt")
+        execute_local("echo hello", cwd="D:/project")
+        execute_local("echo one && echo two", cwd="D:/project", parallel=True)
+        execute_local("git status", cwd="D:/project", timeout=10)
+        execute_local("echo hello", cwd="D:/project", shell="cmd")
+        execute_local("cat huge.log", cwd="D:/project", output_file="D:/project/huge_log.txt")
     """
-    cwd = resolve_cwd(cwd)
     timeout = resolve_timeout(timeout)
 
     if parallel:
@@ -214,13 +206,9 @@ async def execute_sandbox(
     fields: dict = None,
     output_file: str = "",
 ) -> dict | list[dict]:
-    """在沙箱中执行命令（Docker/OpenSandbox，由 SANDBOX_BACKEND 决定）。
+    """在沙箱中执行命令。
 
-    command: 容器内命令, 并行用 && 分隔 + parallel=True
-    timeout: 超时秒数(-1无限), env: 容器内环境变量
-    parallel: 并行执行(每个命令独立容器), fields: 返回字段过滤
-    output_file: 输出过长时指定绝对路径如 D:/project/out.txt，完整 stdout 落盘，返回截断预览
-    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
+    无 cwd/shell 参数；并行时每个命令独立容器，其余参数和返回格式同 execute_local
 
     Example:
         execute_sandbox("echo hello")
@@ -269,13 +257,9 @@ async def execute_remote(
     fields: dict = None,
     output_file: str = "",
 ) -> dict | list[dict]:
-    """在远程服务器执行命令（SSH，标准 ssh_config 或自定义 .env）。
+    """在远程服务器执行命令（SSH，受限模式黑白名单同 execute_local）。
 
-    command: 要执行的命令, 并行用 && 分隔 + parallel=True
-    timeout: 超时秒数(-1无限), env: 环境变量
-    parallel: 并行执行, fields: 返回字段过滤
-    output_file: 输出过长时指定绝对路径如 D:/project/out.txt，完整 stdout 落盘，返回截断预览
-    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
+    无 cwd/shell 参数，其余参数和返回格式同 execute_local
 
     Example:
         execute_remote("ls -la")
@@ -287,9 +271,12 @@ async def execute_remote(
 
     if parallel:
         commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
+        for cmd in commands:
+            validate_command(cmd)
         results = await _remote_executor.execute_batch(commands, timeout=timeout, env=env)
         return [r.to_dict(fields) for r in results]
 
+    validate_command(command)
     result = await _remote_executor.execute(command, timeout=timeout, env=env)
     return _handle_output_file(result, output_file).to_dict(fields)
 
