@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-08-05 — cwd 必填 + 安全统一 + describe 精简
+
+### 变更：cwd 必填 + 移除 DEFAULT_CWD
+- `execute_local` 的 `cwd` 参数改为必填（无默认值），调用方必须显式传入工作目录
+- 移除 `config.DEFAULT_CWD` 和 `resolve_cwd()` 函数
+- restricted/full 模式只控黑白名单，不再控 cwd
+
+### 安全统一：execute_remote 复用本地安全校验
+- `execute_remote` 调用 `validate_command()`，复用 `SECURITY_MODE` + `COMMAND_LIST_MODE` 黑白名单
+- 移除独立的 `REMOTE_SECURITY_MODE`，远程和本地共享同一套安全策略
+
+### 优化：MCP 工具 describe 精简
+- `execute_sandbox` / `execute_remote` 描述复用 `execute_local` 的通用参数说明
+- 各自只标注差异：安全模式、后端选择、SSH 配置方式
+
+### 测试
+- 全量 54/54 passed（移除 DEFAULT_CWD 测试）
+
 ## 2026-08-05 — execute_remote SSH 远程执行
 
 ### 新增

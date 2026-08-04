@@ -2,22 +2,20 @@
 
 ## 环境
 
-- uv环境，py3.11
-- 本地命令执行走 `cmd-exec-mcp` 的 `execute_local`，不手动跑命令
-- Docker 沙箱模式需要本地 Docker 环境，走 `execute_sandbox`
-- OpenSandbox 沙箱模式按需懒启动，首次调用 `execute_sandbox` 时自动启动 `opensandbox-server`
+- Python 3.11，uv 管理依赖
+- config.py 集中配置所有常量，pyproject.toml 管理依赖
 
 ## 关键文件
 
 | 文件 | 作用 |
 |------|------|
-| `config.py` | 所有配置常量（安全、沙箱、日志、后端切换） |
+| `config.py` | 所有配置常量（安全、沙箱、SSH、后端切换） |
 | `main.py` | MCP 服务入口，工具注册、安全校验、进程检测单例 |
 | `executors/base.py` | 执行器抽象基类 |
 | `executors/local.py` | 本地命令执行器 |
 | `executors/sandbox.py` | Docker 沙箱执行器 |
-| `executors/opensandbox.py` | OpenSandbox 沙箱执行器（封装 opensandbox SDK） |
-| `executors/remote.py` | SSH 远程执行器（asyncssh，支持 ssh_config / .env 两种模式） |
+| `executors/opensandbox.py` | OpenSandbox 沙箱执行器 |
+| `executors/remote.py` | SSH 远程执行器（asyncssh） |
 | `models.py` | ExecResult 数据模型 |
 | `tests/` | 测试目录 |
 
@@ -25,51 +23,36 @@
 
 | 常量 | 位置 | 说明 |
 |------|------|------|
-| `SECURITY_MODE` | config.py | 本地安全模式 restricted/full |
-| `COMMAND_WHITELIST` | config.py | 本地白名单 |
-| `COMMAND_BLACKLIST` | config.py | 本地黑名单 |
+| `SECURITY_MODE` | config.py | 本地/远程安全模式 restricted/full |
+| `COMMAND_WHITELIST` / `BLACKLIST` | config.py | 本地/远程黑白名单 |
 | `SANDBOX_BACKEND` | config.py | 沙箱后端 docker/opensandbox |
 | `SANDBOX_SECURITY_MODE` | config.py | 沙箱安全模式（仅 Docker 后端生效） |
-| `SANDBOX_COMMAND_WHITELIST` | config.py | 沙箱白名单 |
-| `SANDBOX_COMMAND_BLACKLIST` | config.py | 沙箱黑名单 |
-| `SANDBOX_DEFAULT_IMAGE` | config.py | 沙箱默认镜像 ubuntu |
-| `SANDBOX_DEFAULT_MOUNT` | config.py | 沙箱默认挂载 None |
-| `SANDBOX_OPEN_TEMPLATE` | config.py | OpenSandbox 模板镜像 |
-| `SANDBOX_OPEN_SERVER_HOST` | config.py | OpenSandbox Server 地址 |
-| `SANDBOX_OPEN_SERVER_PORT` | config.py | OpenSandbox Server 端口 |
-| `SANDBOX_OPEN_API_KEY` | config.py | OpenSandbox API Key（生产必填） |
+| `SANDBOX_COMMAND_WHITELIST` / `BLACKLIST` | config.py | 沙箱黑白名单 |
+| `SANDBOX_DEFAULT_IMAGE` | config.py | Docker 沙箱默认镜像 |
+| `SANDBOX_OPEN_*` | config.py | OpenSandbox 连接配置组（TEMPLATE/HOST/PORT/API_KEY） |
 | `DEFAULT_TIMEOUT` | config.py | 默认超时 -1 无限制 |
-| `FORCE_SHELL` | config.py | 强制指定 Shell None 自动检测 |
-| `RESULT_FIELDS` | config.py | 返回字段开关 |
-| `LOG_FILE` | config.py | 日志文件 log.txt |
-| `LOG_FORMAT` | config.py | 日志格式 |
-| `LOG_DATE_FORMAT` | config.py | 日志时间格式 |
+| `FORCE_SHELL` | config.py | 强制指定 Shell |
 | `SSH_CONFIG_MODE` | config.py | SSH 配置模式 standard/custom |
+| `SSH_HOST_NAME` | config.py | standard 模式 SSH Host 别名 |
 | `SSH_PERSISTENT` | config.py | 长连接复用开关 |
-| `SSH_CONNECTION_TIMEOUT` | config.py | SSH 连接超时秒数 |
 
 ## 规则
 
-- **禁止使用 RunCommand 执行命令**：用 `cmd-exec-mcp` 的 `execute_local` / `execute_sandbox`
-- **monkeypatch 必须用 `import config` + `config.X`**：`from config import X` 创建本地副本，monkeypatch 无法穿透
-- **executor 签名变更影响链**：方法签名变动时，main.py 工具、测试、同接口的其他 executor 都要同步适配
-- **config 重命名需全量搜索**：常量改名/移除后，grep 全量引用，确保测试、main.py、executor 等所有引用点同步更新
+- **禁止使用 RunCommand 执行命令**：用 `cmd-exec-mcp` 的 `execute_local` / `execute_sandbox` / `execute_remote`
+- **execute_local cwd 必填**：`cwd` 无默认值，调用方必须显式传入工作目录
+- **monkeypatch 必须用 `import config` + `config.X`**：`from config import X` 创建本地副本，monkeypatch 无法穿透；executor 同理，需 patch `executors.模块名.X`
+- **executor 签名变更全链适配**：方法签名变动时，main.py 工具、测试、同接口的其他 executor 都要同步
+- **config 重命名全量 grep**：常量改名/移除后，搜索所有引用点确保同步更新
 - **跨 Task 依赖等待**：并行派发时，先检查上游 Task 产物是否存在，确认就绪后再动自己的代码
-- **uv sync 会清 dev 依赖**：`uv sync` 只同步 `[project.dependencies]`，会移除 pytest 等 dev 依赖。依赖变更后使用 `uv pip install -e ".[dev]"` 确保 dev 依赖保留
-- **opensandbox SDK 超时处理**：`Sandbox.create()` 的 timeout 参数接受 `timedelta` 或 `None`。`config.DEFAULT_TIMEOUT = -1` 表示无限制，需转换为 `None` 传入
-- **RemoteExecutor 长连接模式**：`SSH_PERSISTENT=True` 时复用 `self._conn`，需检查 `is_closed()`。非持久模式 `finally` 中 `conn.close()` 断开。超时捕获后非持久模式也要 close
 
 ## 查文献指南
 
-| 资源 | 路径 | 说明 |
-|------|------|------|
-| 项目设计文档 | `docs/superpowers/specs/` | 各模块设计 spec |
-| 项目实现计划 | `docs/superpowers/plans/` | 各模块实现 plan |
-| OpenSandbox SDK API | `docs/opensandbox/api.md` | OpenSandbox API 端点 |
-| OpenSandbox SDK 配置 | `docs/opensandbox/configuration.md` | 配置项说明 |
-| OpenSandbox Python SDK | `docs/opensandbox/pysdk.md` | SDK 用法速查 |
-| OpenSandbox Server | `docs/opensandbox/server.md` | Server 部署 |
-| OpenSandbox 调查报告 | `docs/opensandbox/opensandbox调查报告.md` | 调研总结、对比分析 |
+| 资源 | 路径 |
+|------|------|
+| 项目设计文档 | `docs/superpowers/specs/` |
+| 项目实现计划 | `docs/superpowers/plans/` |
+| OpenSandbox 文档 | `docs/opensandbox/`（api/configuration/pysdk/server/调查报告） |
+| OpenSandbox 官方 | `open-sandbox.ai/sdks/code-interpreter/python` |
 
 ## 工具/MCP
 
@@ -100,23 +83,19 @@
 ## 经验/坑点
 
 - **WebFetch 无法使用**：用 `Invoke-WebRequest` 或 `wet-mcp extract`
-- **Temp 目录不可读**：Read 工具无法访问 `D:\Temp`，MCP 长输出需 Copy-Item 到项目根目录，然后正则替换`\n`为`\\n`，否则将输出超长行
-- **uv pip install 污染宿主 venv**：有 `.python-version` 的项目必须用 `uv sync` 创建隔离环境
+- **Temp 目录不可读**：Read 工具无法访问 `D:\Temp`，MCP 长输出需 Copy-Item 到项目根目录
+- **uv sync 会清 dev 依赖**：`uv sync` 只同步 `[project.dependencies]`，依赖变更后使用 `uv pip install -e ".[dev]"` 保留 dev 依赖
 - **Windows shell 单引号陷阱**：cmd.exe 不认单引号，跨平台测试命令一律用双引号
-- **OpenSandbox entrypoint 陷阱**：`Sandbox.create()` 默认 entrypoint 是 `["tail", "-f", "/dev/null"]`，不执行 `code-interpreter.sh` 会导致 Python 等运行时不在 PATH。必须显式传 `entrypoint=["/opt/code-interpreter/code-interpreter.sh"]` + `env` 版本变量
-- **OpenSandbox env 注入优于命令前缀**：镜像源等环境变量通过 `Sandbox.create(env=...)` 注入，pip/npm/go 自动识别，比 Docker 后端 `--entrypoint bash -lc "export...; cmd"` 更干净
-- **官方文档优先于猜测**：OpenSandbox 的正确用法在 `open-sandbox.ai/sdks/code-interpreter/python`，不在本地 docs/ 里。
-- **Python 3.11 asyncio proactor warning**：Windows 已知 bug，不影响测试结果
-- **fastmcp 3.x API 内部属性不可用**：`mcp._tool_manager._tools` 不存在，用 `await mcp.list_tools()`
-- **Docker sh -c 命令引号**：`sh -c` 后的命令必须双引号包裹，`shlex.quote()` 输出单引号不兼容 Windows
-- **Windows 管道句柄继承**：`asyncio.create_subprocess_shell` 管道可被孙子进程继承，改用 `loop.run_in_executor` + `subprocess.run(stdin=DEVNULL, capture_output=True)`
 - **pwsh 冷启动 ~2s**：Windows 默认 Shell 用 `cmd`（~0.15s），需要 `&&` 时传 `shell="pwsh"`
-- **sys.modules mock 对已导入模块无效**：已在内存的模块不重载，用 `monkeypatch.setattr(executor_module, "SDKClass", mock_cls)` 直接打补丁
-- **logging.basicConfig 只生效一次**：Python logging 的 basicConfig 只在首次调用生效，后续调用是 no-op
-- **opensandbox SDK 超时**：`Sandbox.create()` 的 timeout 接受 `timedelta` 或 `None`，`-1` 需转为 `None`
-- **cmd /c 双层包装**：`subprocess.run(shell=True)` 在 Windows 上已走 `cmd.exe /c`，`wrap_command` 不应再包一层 `cmd /c`，否则引号双层转义导致命令断裂
-- **env 全覆盖陷阱**：`subprocess.run(env=user_env)` 替换整个环境变量，PATH 丢失致 `chcp` 等命令找不到，应先 `os.environ.copy()` 再 `.update()`
-- **Windows 超时进程树残留**：`subprocess.run(timeout=N)` 只杀 `cmd.exe`，子进程残留导致 `run()` 迟迟不返回，改用 `Popen` + `communicate(timeout=...)` + `taskkill /F /T /PID` 杀进程树
-- **executor 的 from config import 副本**：`from config import X` 在 executor 模块级创建本地副本，monkeypatch `config.X` 不穿透。需 patch `executors.模块名.X`。用 `_setup_remote_mocks` 等辅助函数统一 patch 所有模块级常量 + SDK 引用
-- **plan 中的 API 可能不存在**：plan 里的 `asyncssh.read_config()` 在实际 asyncssh 库中不存在（实际是 `SSHClientConfig.load()`），测试 mock 可以绕过，但 executor 运行时调用的是已存在的 API
-- **asyncssh.connect 原生支持 ssh_config**：`asyncssh.connect(host=alias, config=[~/.ssh/config])` 直接读取 Host 别名，无需手动解析
+- **subprocess 三大坑**：① `env=` 替换整个环境变量导致 PATH 丢失，先 `os.environ.copy()` 再 `.update()`；② `shell=True` + `cmd /c` 双层包装导致引号转义断裂；③ `timeout=` 只杀父进程，子进程残留，用 `Popen` + `communicate` + `taskkill /F /T /PID`
+- **Windows 管道句柄继承**：`asyncio.create_subprocess_shell` 管道可被孙子进程继承，改用 `loop.run_in_executor` + `subprocess.run(stdin=DEVNULL, capture_output=True)`
+- **OpenSandbox entrypoint 陷阱**：默认 entrypoint 不执行 `code-interpreter.sh`，Python 等运行时不在 PATH。必须显式传 `entrypoint=["/opt/code-interpreter/code-interpreter.sh"]` + env 版本变量
+- **OpenSandbox env 注入优于命令前缀**：镜像源等环境变量通过 `Sandbox.create(env=...)` 注入，比 Docker 后端 `--entrypoint` 方案更干净
+- **OpenSandbox 超时**：`Sandbox.create()` 的 timeout 接受 `timedelta` 或 `None`，`-1` 需转为 `None`
+- **sys.modules mock 对已导入模块无效**：用 `monkeypatch.setattr(executor_module, "ClassName", mock_cls)` 直接打补丁
+- **logging.basicConfig 只生效一次**：后续调用是 no-op
+- **fastmcp 3.x API 内部属性不可用**：`mcp._tool_manager._tools` 不存在，用 `await mcp.list_tools()`
+- **plan 中的 API 可能不存在**：plan 引用的 API 在实际库中可能不同名，实现时以实际库文档为准
+- **asyncssh.connect 原生支持 ssh_config**：`asyncssh.connect(host=alias, config=[~/.ssh/config])` 直接读取 Host 别名
+- **RemoteExecutor 长连接模式**：`SSH_PERSISTENT=True` 时检查 `is_closed()` 决定复用/重连，非持久模式 `finally` 中 close
+- **Python 3.11 asyncio proactor warning**：Windows 已知 bug，不影响测试结果
