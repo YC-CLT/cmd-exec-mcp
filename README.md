@@ -50,7 +50,9 @@ Edit `config.py`:
 | `COMMAND_LIST_MODE` | `"blacklist"` | List mode: `"whitelist"` \| `"blacklist"` |
 | `COMMAND_WHITELIST` | `["ls","dir","git",...]` | Whitelist commands |
 | `COMMAND_BLACKLIST` | `["rm","del","shutdown",...]` | Blacklist commands |
-| `FORCE_SHELL` | `None` | Force shell: `"pwsh"`\|`"cmd"`\|`"bash"` |
+| `FORCE_SHELL` | `None` | Force shell: `"pwsh"`\|`"cmd"`\|`"bash"`\|`"wsl"` |
+| `WSL_DISTRO` | `"kali-linux"` | WSL distro name (when `shell="wsl"`) |
+| `WSL_USER` | `"kali"` | WSL username (when `shell="wsl"`) |
 | `SANDBOX_BACKEND` | `"opensandbox"` | Sandbox backend: `"docker"` \| `"opensandbox"` |
 | `SANDBOX_SECURITY_MODE` | `"full"` | Docker sandbox security mode |
 | `SANDBOX_COMMAND_LIST_MODE` | `"blacklist"` | Docker sandbox list mode |
@@ -136,7 +138,7 @@ Execute a command on the host machine.
 | `timeout` | int | 30 | Timeout in seconds, -1 for unlimited |
 | `env` | dict | null | Environment variables |
 | `fields` | dict | null | Return field filter |
-| `shell` | str | null | Override shell: `"pwsh"`\|`"cmd"`\|`"bash"` |
+| `shell` | str | null | Override shell: `"pwsh"`\|`"cmd"`\|`"bash"`\|`"wsl"` |
 | `output_file` | str | "" | Write full stdout to disk, return truncated preview |
 
 #### execute_sandbox
@@ -252,7 +254,9 @@ uv sync
 | `COMMAND_LIST_MODE` | `"blacklist"` | 列表模式: `"whitelist"` \| `"blacklist"` |
 | `COMMAND_WHITELIST` | `["ls","dir","git",...]` | 白名单 |
 | `COMMAND_BLACKLIST` | `["rm","del","shutdown",...]` | 黑名单 |
-| `FORCE_SHELL` | `None` | 强制指定 Shell: `"pwsh"`\|`"cmd"`\|`"bash"` |
+| `FORCE_SHELL` | `None` | 强制指定 Shell: `"pwsh"`\|`"cmd"`\|`"bash"`\|`"wsl"` |
+| `WSL_DISTRO` | `"kali-linux"` | WSL 发行版名（`shell="wsl"` 时生效） |
+| `WSL_USER` | `"kali"` | WSL 用户名（`shell="wsl"` 时生效） |
 | `SANDBOX_BACKEND` | `"opensandbox"` | 沙箱后端: `"docker"` \| `"opensandbox"` |
 | `SANDBOX_SECURITY_MODE` | `"full"` | 纯docker沙箱安全模式 |
 | `SANDBOX_COMMAND_LIST_MODE` | `"blacklist"` | 纯docker沙箱列表模式 |
@@ -339,7 +343,7 @@ uv sync
 | `timeout` | int | 30 | 超时秒数，-1 无限制 |
 | `env` | dict | null | 环境变量 |
 | `fields` | dict | null | 返回字段过滤 |
-| `shell` | str | null | 指定 Shell: `"pwsh"`\|`"cmd"`\|`"bash"` |
+| `shell` | str | null | 指定 Shell: `"pwsh"`\|`"cmd"`\|`"bash"`\|`"wsl"` |
 | `output_file` | str | "" | 输出过长时落盘，返回截断预览 |
 
 #### execute_sandbox

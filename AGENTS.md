@@ -30,7 +30,7 @@
 | `SANDBOX_COMMAND_WHITELIST` / `BLACKLIST` | config.py | 沙箱黑白名单 |
 | `SANDBOX_DEFAULT_IMAGE` | config.py | Docker 沙箱默认镜像 |
 | `SANDBOX_OPEN_*` | config.py | OpenSandbox 连接配置组（TEMPLATE/HOST/PORT/API_KEY） |
-| `DEFAULT_TIMEOUT` | config.py | 默认超时 -1 无限制 |
+| `DEFAULT_TIMEOUT` | config.py | 默认超时 30 秒，-1 无限制 |
 | `FORCE_SHELL` | config.py | 强制指定 Shell |
 | `SSH_CONFIG_MODE` | config.py | SSH 配置模式 standard/custom |
 | `SSH_HOST_NAME` | config.py | standard 模式 SSH Host 别名 |
@@ -92,3 +92,4 @@
 - **pwsh 冷启动 ~2s 是因为 profile**：`-NoProfile` 跳过模块加载（posh-git/oh-my-posh 等），降到 0.5s；`-NonInteractive` 关闭交互提示；`$PSStyle.OutputRendering = 'PlainText'` 去 ANSI
 - **WSL 用 `--shell-type standard` 不用 `-lc`**：`-lc`（login shell）触发 profile 加载，慢且编码乱；`--shell-type standard` + `-c` 干净快速
 - **output_file 路径由 AI 控制**：传绝对路径如 `D:/project/out.txt`，不依赖 MCP 进程的 cwd；文件名 basename 消毒防路径穿越
+- **新增外部库必须同步 pyproject.toml**：`import` 了新库但未声明 dependency，`uv sync` 后 import 失败（如 asyncssh、python-dotenv 遗漏）
