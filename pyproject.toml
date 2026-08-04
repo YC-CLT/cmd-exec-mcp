@@ -1,12 +1,15 @@
 [project]
 name = "cmd-exec-mcp"
 version = "0.1.0"
-description = "MCP service for executing commands locally, in Docker, sandbox, and remote environments"
+description = "A simple MCP server for executing commands locally, in sandbox, and remote environments"
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=0.1.0",
     "opensandbox>=0.1.0",
+    "asyncssh>=2.0.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]

@@ -60,25 +60,11 @@
 
 ## 工作流
 
-```
-构想 → 计划 → 实施 → 验收 → 记录（写CHANGELOG + 经验教训写入本文）→ 提交
-  │      │       │       │
-  │      │       │       └── 人工验收（3号机）
-  │      │       └── dispatching-parallel-agents 并行派发
-  │      └── writing-plans 生成实现计划
-  └── brainstorming 需求澄清 + 设计方案
-```
-
-### 详细步骤
-
-1. **brainstorming**：需求澄清 → 多方案对比 → 逐节确认设计 → 写入 `docs/superpowers/specs/<date>-design.md`
-2. **writing-plans**：从 spec 生成 TDD 实现计划，按模块拆分 Task，每步 2-5 分钟粒度 → 写入 `docs/superpowers/plans/<date>-plan.md`
-3. **dispatching-parallel-agents**：三机并行派发
-   - **1号机**：基础层（config + models + 依赖）
-   - **2号机**：业务层（executors + main + 安全校验）
-   - **3号机**：验收层（跑全量测试 + 手工验证）
-   - 提示词只写 Task 编号和关键约束，让 agent 自己读 plan
-4. **记录**：更新 CHANGELOG + 本文经验教训 → 提交
+1. 构想：调用skill：brainstorming → 产出 `docs/superpowers/specs/<date>-design.md`
+2. 计划：调用writing-plans → 产出 `docs/superpowers/plans/<date>-plan.md`  
+3. 实施：调用dispatching-parallel-agents → 并行派发
+4. 记录：写CHANGELOG.md + 写经验教训到AGENTS.md
+5. 提交：分组提交
 
 ## 经验/坑点
 
