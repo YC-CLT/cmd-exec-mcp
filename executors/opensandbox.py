@@ -17,14 +17,18 @@ class OpenSandboxExecutor(BaseExecutor):
 
     async def execute(self, command, timeout=None, env=None):
         start = time.time()
+        runtime_env = getattr(config, "SANDBOX_OPEN_RUNTIME_ENV", {})
+        merged_env = {**runtime_env, **(env or {})}
         sandbox = await Sandbox.create(
             config.SANDBOX_OPEN_TEMPLATE,
             connection_config=self.conn,
             timeout=timedelta(seconds=timeout) if timeout and timeout > 0 else None,
-            env=env or {},
+            entrypoint=getattr(config, "SANDBOX_OPEN_ENTRYPOINT", None),
+            env=merged_env,
         )
         try:
-            execution = await sandbox.commands.run(command)
+            prefix = getattr(config, "SANDBOX_OPEN_PREFIX", "")
+            execution = await sandbox.commands.run(f"{prefix}{command}")
             stdout = "".join(msg.text for msg in execution.logs.stdout)
             stderr = "".join(msg.text for msg in execution.logs.stderr)
             return ExecResult(

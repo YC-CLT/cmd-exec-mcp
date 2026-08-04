@@ -51,13 +51,31 @@ SANDBOX_DOCKER_PREFIX = (
 )
 
 # 沙箱后端: "docker" | "opensandbox"
-SANDBOX_BACKEND = "docker"
+SANDBOX_BACKEND = "opensandbox"
 
 # OpenSandbox 后端配置
 SANDBOX_OPEN_TEMPLATE = "opensandbox/code-interpreter:v1.1.0"
 SANDBOX_OPEN_SERVER_HOST = "localhost"
 SANDBOX_OPEN_SERVER_PORT = 8080
-SANDBOX_OPEN_API_KEY = ""  # 生产环境必填，本地开发可留空
+SANDBOX_OPEN_API_KEY = "cmd-exec-mcp-dev"  # 生产环境必填，本地开发可留空
+
+# OpenSandbox 入口脚本（code-interpreter.sh 负责初始化 PATH 和运行时环境）
+SANDBOX_OPEN_ENTRYPOINT = ["/opt/code-interpreter/code-interpreter.sh"]
+
+# OpenSandbox 运行时版本（传给 code-interpreter.sh 的环境变量）
+SANDBOX_OPEN_RUNTIME_ENV = {
+    "PYTHON_VERSION": "3.11",
+    "JAVA_VERSION": "17",
+    "NODE_VERSION": "20",
+    "GO_VERSION": "1.24",
+    # 国内镜像加速
+    "PIP_INDEX_URL": "https://mirrors.aliyun.com/pypi/simple/",
+    "NPM_CONFIG_REGISTRY": "https://registry.npmmirror.com",
+    "GOPROXY": "https://goproxy.cn,direct",
+}
+
+# OpenSandbox 命令前缀（备用，正常情况下 entrypoint 已设置 PATH）
+SANDBOX_OPEN_PREFIX = ""
 
 # 日志
 LOG_FILE = "log.txt"
