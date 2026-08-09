@@ -193,6 +193,18 @@ Execute a command on a remote server via SSH. See SSH prerequisites above.
 uv run pytest tests/ -v
 ```
 
+### Non-Interactive Execution
+
+The MCP server sets `stdin` to `/dev/null` — interactive commands will fail or timeout. Add flags to skip prompts:
+
+| Command | Flag | Notes |
+|---|---|---|
+| `apt install` | `-y` | Auto-confirm |
+| `apt remove` | `-y` | Use with caution |
+| `sudo` | `-n` | Non-interactive, fail if password needed |
+| `pip install` | — | Non-interactive by default |
+| `rm` | — | Blacklisted by default |
+
 ### Logging
 
 Logs are written to `log.txt` in the project root, format:
@@ -397,6 +409,18 @@ uv sync
 ```bash
 uv run pytest tests/ -v
 ```
+
+### 非交互执行
+
+MCP 服务端设置 `stdin` 为 `/dev/null`，交互式命令会失败或超时。请添加对应 flag 跳过提示：
+
+| 命令 | 参数 | 说明 |
+|---|---|---|
+| `apt install` | `-y` | 自动确认 |
+| `apt remove` | `-y` | 谨慎使用 |
+| `sudo` | `-n` | 非交互模式，需要密码则失败 |
+| `pip install` | — | 默认非交互 |
+| `rm` | — | 默认黑名单拦截 |
 
 ### 日志
 

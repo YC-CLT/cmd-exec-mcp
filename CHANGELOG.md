@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-08-05 — 非交互执行文档 + 配置同步
+
+### 文档
+
+- README 新增「非交互执行」小节（中英文）：说明 `stdin=DEVNULL` 行为，列出 `apt -y`、`sudo -n` 等常用非交互 flag
+- 工具参数表 shell 选项补 `"wsl"`（5 处），配置表补 `WSL_DISTRO`、`WSL_USER`
+- AGENTS.md：`DEFAULT_TIMEOUT` 描述修正，新增外部依赖同步坑点
+
 ## 2026-08-05 — 双语 README + LICENSE + 文档同步
 
 ### 文档
