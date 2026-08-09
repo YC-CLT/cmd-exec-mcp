@@ -1,5 +1,11 @@
 # cmd-exec-mcp
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
+[![MCP](https://img.shields.io/badge/MCP-Server-orange.svg)](https://modelcontextprotocol.io/)
+
+**Repo**: [github.com/YC-CLT/cmd-exec-mcp](https://github.com/YC-CLT/cmd-exec-mcp)
+
 <a id="english"></a>
 
 [English](#english) | [中文](#中文)
@@ -22,7 +28,7 @@ A simple command execution MCP server supporting local execution, Docker/OpenSan
 ### Installation
 
 ```bash
-git clone https://github.com/<user>/cmd-exec-mcp.git
+git clone https://github.com/YC-CLT/cmd-exec-mcp.git
 cd cmd-exec-mcp
 uv sync
 ```
@@ -238,7 +244,7 @@ MIT
 ### 安装
 
 ```bash
-git clone https://github.com/<user>/cmd-exec-mcp.git
+git clone https://github.com/YC-CLT/cmd-exec-mcp.git
 cd cmd-exec-mcp
 uv sync
 ```

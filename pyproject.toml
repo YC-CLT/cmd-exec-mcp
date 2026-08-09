@@ -5,12 +5,29 @@ description = "A simple MCP server for executing commands locally, in sandbox, a
 license = "MIT"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+    {name = "YC-CLT"},
+]
+keywords = ["mcp", "command", "execution", "sandbox", "ssh", "docker"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: System :: Shells",
+]
 dependencies = [
     "fastmcp>=0.1.0",
     "opensandbox>=0.1.0",
     "asyncssh>=2.0.0",
     "python-dotenv>=1.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/YC-CLT/cmd-exec-mcp"
+Repository = "https://github.com/YC-CLT/cmd-exec-mcp"
+Issues = "https://github.com/YC-CLT/cmd-exec-mcp/issues"
 
 [project.optional-dependencies]
 dev = [
