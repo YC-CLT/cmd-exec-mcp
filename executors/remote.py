@@ -62,7 +62,7 @@ class RemoteExecutor(BaseExecutor):
         logger.info("[remote] executing: %s", command)
         try:
             conn = await self._get_connection()
-            result = await conn.run(command, timeout=timeout)
+            result = await conn.run(command, timeout=timeout, env=env)
             duration = time.time() - start
             ec = result.exit_status if result.exit_status is not None else 0
             if ec != 0:

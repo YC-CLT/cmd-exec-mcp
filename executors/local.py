@@ -63,6 +63,7 @@ class LocalExecutor(BaseExecutor):
         subprocess_timeout = timeout if timeout is not None and timeout > 0 else None
 
         merged_env = os.environ.copy()
+        merged_env.pop("VIRTUAL_ENV", None)
         if env:
             merged_env.update(env)
 

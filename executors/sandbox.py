@@ -46,13 +46,18 @@ class SandboxExecutor(BaseExecutor):
                 capture_output=True,
             )
 
-    def _run_with_timeout(self, docker_cmd, timeout):
+    def _run_with_timeout(self, docker_cmd, timeout, env=None):
+        merged_env = os.environ.copy()
+        merged_env.pop("VIRTUAL_ENV", None)
+        if env:
+            merged_env.update(env)
         proc = subprocess.Popen(
             docker_cmd,
             shell=True,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=merged_env,
         )
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -79,7 +84,7 @@ class SandboxExecutor(BaseExecutor):
         try:
             stdout, stderr, returncode = await loop.run_in_executor(
                 None,
-                lambda: self._run_with_timeout(docker_cmd, subprocess_timeout),
+                lambda: self._run_with_timeout(docker_cmd, subprocess_timeout, env),
             )
             result = ExecResult(
                 command_echo=command,

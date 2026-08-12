@@ -18,7 +18,7 @@ class MockSSHConnection:
     def close(self):
         pass
 
-    async def run(self, command, timeout=None):
+    async def run(self, command, timeout=None, env=None):
         return self
 
 

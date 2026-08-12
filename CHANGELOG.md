@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-12 — 环境变量泄漏修复 + 沙箱/远程 env 穿透
+
+### 修复
+
+- `executors/local.py`：`os.environ.copy()` 后 `pop("VIRTUAL_ENV")`，防止 MCP 进程的 venv 泄漏到子进程（`uv sync` 到其他目录时报 mismatch）
+- `executors/sandbox.py`：`env` 参数被静默忽略的 bug，`_run_with_timeout` 新增 `env` 参数 + `VIRTUAL_ENV` 清理
+- `executors/remote.py`：`conn.run()` 未传 `env` 参数，导致用户自定义环境变量被静默忽略
+- `tests/test_remote_executor.py`：mock `run()` 签名适配 `env` 参数
+
+### 文档
+
+- README：OpenSandbox 前置条件步骤精简，包管理器统一 `uv pip install`
+- `docs/opensandbox/opensandbox调查报告.md`：新增 Code Interpreter 镜像章节，删除对 executor 无用的源码架构/Execd API 章节
+- `docs/opensandbox/.sandbox.toml`：Windows 本地开发配置模板
+
 ## 2026-08-05 — 非交互执行文档 + 配置同步
 
 ### 文档

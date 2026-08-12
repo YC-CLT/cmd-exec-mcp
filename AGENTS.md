@@ -4,6 +4,7 @@
 
 - Python 3.11，uv 管理依赖
 - config.py 集中配置所有常量，pyproject.toml 管理依赖
+- **命令**：用 `cmd-exec-mcp`
 
 ## 关键文件
 
@@ -41,7 +42,6 @@
 
 ## 规则
 
-- **禁止使用 RunCommand 执行命令**：用 `cmd-exec-mcp`
 - **monkeypatch 必须用 `import config` + `config.X`**：`from config import X` 创建本地副本，monkeypatch 无法穿透；executor 同理，需 patch `executors.模块名.X`
 - **executor 签名变更全链适配**：方法签名变动时，main.py 工具、测试、同接口的其他 executor 都要同步
 - **config 重命名全量 grep**：常量改名/移除后，搜索所有引用点确保同步更新
@@ -65,8 +65,9 @@
 0. 读AGENTS.md
 1. 构想：调用 brainstorming → 产出 `docs/superpowers/specs/<date>-design.md`
 2. 计划：调用 writing-plans → 产出 `docs/superpowers/plans/<date>-plan.md`
-3. 发派：调用 dispatching-parallel-agents → 产出 `subprompt.md`
+3. 发派：调用 dispatching-parallel-agents 产出给n号机（目前只有1，2号机）的提示词 `docs/superpowers/subprompts/<date>-plan-subprompt-n.md` ，用于手动发派（当前环境是win且不支持子代理，无法自动 dispatch），创建`docs/superpowers/subprompts/<date>-plan-process.md` 用于记录进度，防止冲突
 4. 实施：调用 executing-plans
+   - 先隔离，使用git创建新的dev分支（1号机）或者进入已有分支（2号机）  
    - 遇到 bug 自动触发 systematic-debugging（先找根因再修）
    - 写代码自动触发 test-driven-development（先写测试再实现）
 5. 验证：调用 verification-before-completion → 跑验证命令确认完成
@@ -93,3 +94,4 @@
 - **pwsh 冷启动 ~2s 是因为 profile**：`-NoProfile` 跳过模块加载（posh-git/oh-my-posh 等），降到 0.5s；`-NonInteractive` 关闭交互提示；`$PSStyle.OutputRendering = 'PlainText'` 去 ANSI
 - **WSL 用 `--shell-type standard` 不用 `-lc`**：`-lc`（login shell）触发 profile 加载，慢且编码乱；`--shell-type standard` + `-c` 干净快速
 - **output_file 路径由 AI 控制**：传绝对路径如 `D:/project/out.txt`，不依赖 MCP 进程的 cwd；文件名 basename 消毒防路径穿越
+- **env 穿透审计四件套**：① `os.environ.copy()` 后 `pop("VIRTUAL_ENV")` 防 venv 泄漏；② `env` 参数必须传到子进程，不能静默忽略；③ Docker/SSH 等隔离执行器不继承父进程环境；④ 新增 executor 时必须检查 env 链路是否完整
