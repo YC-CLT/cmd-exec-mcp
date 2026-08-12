@@ -94,4 +94,4 @@
 - **pwsh 冷启动 ~2s 是因为 profile**：`-NoProfile` 跳过模块加载（posh-git/oh-my-posh 等），降到 0.5s；`-NonInteractive` 关闭交互提示；`$PSStyle.OutputRendering = 'PlainText'` 去 ANSI
 - **WSL 用 `--shell-type standard` 不用 `-lc`**：`-lc`（login shell）触发 profile 加载，慢且编码乱；`--shell-type standard` + `-c` 干净快速
 - **output_file 路径由 AI 控制**：传绝对路径如 `D:/project/out.txt`，不依赖 MCP 进程的 cwd；文件名 basename 消毒防路径穿越
-- **env 穿透审计四件套**：① `os.environ.copy()` 后 `pop("VIRTUAL_ENV")` 防 venv 泄漏；② `env` 参数必须传到子进程，不能静默忽略；③ Docker/SSH 等隔离执行器不继承父进程环境；④ 新增 executor 时必须检查 env 链路是否完整
+- **env 穿透审计四件套**：① `os.environ.copy()` 后 `pop("VIRTUAL_ENV")` 防 venv 泄漏；② PATH 中 strip `sys.prefix` 及 `Scripts` 子目录，防 `uv run`/`where python` 解析到错误的 python；③ `env` 参数必须传到子进程，不能静默忽略；④ Docker/SSH 等隔离执行器不继承父进程环境

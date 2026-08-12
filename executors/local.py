@@ -64,6 +64,13 @@ class LocalExecutor(BaseExecutor):
 
         merged_env = os.environ.copy()
         merged_env.pop("VIRTUAL_ENV", None)
+        if sys.prefix != sys.base_prefix:
+            path_parts = merged_env.get("PATH", "").split(os.pathsep)
+            path_parts = [
+                p for p in path_parts
+                if not os.path.normpath(p).lower().startswith(os.path.normpath(sys.prefix).lower())
+            ]
+            merged_env["PATH"] = os.pathsep.join(path_parts)
         if env:
             merged_env.update(env)
 

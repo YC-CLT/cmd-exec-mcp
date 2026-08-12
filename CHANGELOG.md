@@ -4,7 +4,7 @@
 
 ### 修复
 
-- `executors/local.py`：`os.environ.copy()` 后 `pop("VIRTUAL_ENV")`，防止 MCP 进程的 venv 泄漏到子进程（`uv sync` 到其他目录时报 mismatch）
+- `executors/local.py`：`os.environ.copy()` 后 `pop("VIRTUAL_ENV")` + 从 PATH 中 strip venv 的 Scripts 目录，防止 MCP 进程的 venv 泄漏到子进程（`uv run` 解析到错误 python）
 - `executors/sandbox.py`：`env` 参数被静默忽略的 bug，`_run_with_timeout` 新增 `env` 参数 + `VIRTUAL_ENV` 清理
 - `executors/remote.py`：`conn.run()` 未传 `env` 参数，导致用户自定义环境变量被静默忽略
 - `tests/test_remote_executor.py`：mock `run()` 签名适配 `env` 参数
