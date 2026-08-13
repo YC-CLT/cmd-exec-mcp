@@ -38,7 +38,7 @@ LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # 输出截断（output_file 参数时，stdout 返回前 N 字符，完整内容落盘）
-OUTPUT_TRUNCATE_LENGTH = 2000
+OUTPUT_TRUNCATE_LENGTH = 8000
 
 # 沙箱后端: "docker" | "opensandbox"
 SANDBOX_BACKEND = "opensandbox"
