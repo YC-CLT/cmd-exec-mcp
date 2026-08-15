@@ -59,6 +59,9 @@ class FakeStdout:
 
 
 class FakeStderr:
+    def __init__(self, proc=None):
+        pass
+
     def readline(self):
         return b""
 
@@ -66,12 +69,16 @@ class FakeStderr:
 class FakeStdin:
     def __init__(self):
         self.written = []
+        self.closed = False
 
     def write(self, data):
         self.written.append(data)
 
     def flush(self):
         pass
+
+    def close(self):
+        self.closed = True
 
 
 @pytest.mark.asyncio
