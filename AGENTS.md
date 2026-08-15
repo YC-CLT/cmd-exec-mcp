@@ -17,6 +17,7 @@
 | `executors/sandbox.py` | Docker 沙箱执行器 |
 | `executors/opensandbox.py` | OpenSandbox 沙箱执行器 |
 | `executors/remote.py` | SSH 远程执行器（asyncssh） |
+| `executors/session.py` | SessionManager + ProcessSession 会话管理 |
 | `models.py` | ExecResult 数据模型 |
 | `tests/` | 测试目录 |
 
@@ -39,6 +40,9 @@
 | `WSL_DISTRO` | config.py | WSL 发行版名（shell="wsl" 时生效） |
 | `WSL_USER` | config.py | WSL 用户名（shell="wsl" 时生效） |
 | `OUTPUT_TRUNCATE_LENGTH` | config.py | output_file 截断长度 |
+| `SESSION_DEFAULT_ALIVE_TIMEOUT` | config.py | session 默认 alive 超时 300s |
+| `SESSION_MAX_OUTPUT_LINES` | config.py | session 输出最大行数 10000 |
+| `SESSION_MAX_OUTPUT_BYTES` | config.py | session 输出最大字节 10MB |
 
 ## 规则
 
@@ -95,3 +99,7 @@
 - **WSL 用 `--shell-type standard` 不用 `-lc`**：`-lc`（login shell）触发 profile 加载，慢且编码乱；`--shell-type standard` + `-c` 干净快速
 - **output_file 路径由 AI 控制**：传绝对路径如 `D:/project/out.txt`，不依赖 MCP 进程的 cwd；文件名 basename 消毒防路径穿越
 - **env 穿透审计四件套**：① `os.environ.copy()` 后 `pop("VIRTUAL_ENV")` 防 venv 泄漏；② PATH 中 strip `sys.prefix` 及 `Scripts` 子目录，防 `uv run`/`where python` 解析到错误的 python；③ `env` 参数必须传到子进程，不能静默忽略；④ Docker/SSH 等隔离执行器不继承父进程环境
+- **Session `_read_loop` 顺序读 stdout/stderr 会提前退出**：逐个 `readline` 时 stderr 返回空串被误判为 EOF，应用 `asyncio.create_task` 并行读或 `select` 多路复用
+- **`_cleanup` 终止进程后必须设 `exit_code`**：watchdog 超时调用 `_cleanup` 后 `exit_code` 仍为 None 导致 `is_running` 仍为 True，`terminate()` 后应 `poll()` 或设 `-1`
+- **Mock `poll()` 需优先检查 `returncode`**：`FakeProcess.poll()` 应先检查 `returncode` 再查内部状态，否则 `terminate()` 后仍返回旧值
+- **`_build_docker_cmd(image)` 是必传位置参数**：不能误传 `env` 代替，签名是 `(command, image, mount, cwd)`

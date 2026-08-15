@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 2026-08-15 — Session Detach 实现
+
+### 新增
+
+- `config.py`：`SESSION_DEFAULT_ALIVE_TIMEOUT`(300)、`SESSION_MAX_OUTPUT_LINES`(10000)、`SESSION_MAX_OUTPUT_BYTES`(10MB) 三个配置常量
+- `executors/session.py`：`SessionManager` + `ProcessSession` 核心组件，支持 create/read/send/kill 操作，watchdog 超时自动清理，atexit 兜底
+- `executors/base.py`：`create_session` 抽象方法，所有 executor 实现
+- `executors/local.py`：`create_session` 本地后台进程启动（env 穿透审计）
+- `executors/sandbox.py`：`create_session` Docker 沙箱后台进程启动
+- `executors/remote.py`：`create_session` SSH 远程后台进程启动（asyncssh `create_process`）
+- `executors/opensandbox.py`：`create_session` OpenSandbox 后台进程启动
+- `main.py`：`execute_local`/`execute_sandbox`/`execute_remote` 三个工具新增 `detach`/`session_id`/`action`/`alive_timeout` 参数，支持 session 路由
+
+### 测试
+
+- `tests/test_session_manager.py`：10 个用例（create/read/send/kill/notfound/watchdog/reset/cleanup）
+- `tests/test_session_local.py`：2 个用例（create_session 返回 proc、忽略 alive_timeout）
+- `tests/test_session_sandbox.py`：1 个用例（create_session 返回 proc）
+- `tests/test_session_remote.py`：1 个用例（mock create_session 返回 proc）
+
 ## 2026-08-12 — 环境变量泄漏修复 + 沙箱/远程 env 穿透
 
 ### 修复
