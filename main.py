@@ -15,6 +15,7 @@ from executors.local import LocalExecutor
 from executors.sandbox import SandboxExecutor
 from executors.opensandbox import OpenSandboxExecutor
 from executors.remote import RemoteExecutor
+from executors.session import SessionManager
 from fastmcp import FastMCP
 
 
@@ -149,6 +150,7 @@ executor = LocalExecutor()
 sandbox = SandboxExecutor()
 opensandbox = OpenSandboxExecutor()
 _remote_executor = RemoteExecutor()
+session_manager = SessionManager()
 _opensandbox_server_started = False
 
 
@@ -175,6 +177,10 @@ async def execute_local(
     fields: dict = None,
     shell: str = None,
     output_file: str = "",
+    detach: bool = False,
+    session_id: str = None,
+    action: str = "send",
+    alive_timeout: int = None,
 ) -> dict | list[dict]:
     """在本地执行命令（受限模式黑白名单校验，完全模式放行）。
 
@@ -183,6 +189,7 @@ async def execute_local(
     parallel: 并行执行, fields: 返回字段过滤如 {"stdout": True}
     shell: 指定 Shell，可选 "pwsh"|"cmd"|"bash"|"wsl"，默认自动检测
     output_file: 输出过长时指定绝对路径如 D:/project/out.txt，完整 stdout 落盘，返回截断预览
+    detach: 后台运行会话, session_id: 会话ID, action: read/send/kill, alive_timeout: 超时秒数
     返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
 
     Example:
@@ -192,6 +199,24 @@ async def execute_local(
         execute_local("echo hello", cwd="D:/project", shell="cmd")
         execute_local("cat huge.log", cwd="D:/project", output_file="D:/project/huge_log.txt")
     """
+    if session_id:
+        if action == "read":
+            return session_manager.read(session_id)
+        elif action == "kill":
+            return session_manager.kill(session_id)
+        elif action == "send":
+            session_manager.send(session_id, command)
+            return {"sent": True, "session_id": session_id}
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    if detach:
+        if alive_timeout is None:
+            alive_timeout = config.SESSION_DEFAULT_ALIVE_TIMEOUT
+        validate_command(command)
+        command = wrap_command(command, shell)
+        return await session_manager.create(command, cwd, env, alive_timeout, executor)
+
     timeout = resolve_timeout(timeout)
 
     if parallel:
@@ -216,6 +241,10 @@ async def execute_sandbox(
     parallel: bool = False,
     fields: dict = None,
     output_file: str = "",
+    detach: bool = False,
+    session_id: str = None,
+    action: str = "send",
+    alive_timeout: int = None,
 ) -> dict | list[dict]:
     """在沙箱中执行命令。
 
@@ -227,6 +256,27 @@ async def execute_sandbox(
         execute_sandbox("pip install numpy && python -c 'import numpy'", timeout=120)
     """
     global _opensandbox_server_started
+
+    if session_id:
+        if action == "read":
+            return session_manager.read(session_id)
+        elif action == "kill":
+            return session_manager.kill(session_id)
+        elif action == "send":
+            session_manager.send(session_id, command)
+            return {"sent": True, "session_id": session_id}
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    if detach:
+        if alive_timeout is None:
+            alive_timeout = config.SESSION_DEFAULT_ALIVE_TIMEOUT
+        if config.SANDBOX_BACKEND == "docker":
+            validate_sandbox_command(command)
+            return await session_manager.create(command, None, env, alive_timeout, sandbox)
+        else:
+            return await session_manager.create(command, None, env, alive_timeout, opensandbox)
+
     timeout = resolve_timeout(timeout)
 
     if config.SANDBOX_BACKEND == "opensandbox" and not _opensandbox_server_started:
@@ -267,6 +317,10 @@ async def execute_remote(
     parallel: bool = False,
     fields: dict = None,
     output_file: str = "",
+    detach: bool = False,
+    session_id: str = None,
+    action: str = "send",
+    alive_timeout: int = None,
 ) -> dict | list[dict]:
     """在远程服务器执行命令（SSH，受限模式黑白名单同 execute_local）。
 
@@ -278,6 +332,24 @@ async def execute_remote(
         execute_remote("docker ps", timeout=10)
     """
     global _remote_executor
+
+    if session_id:
+        if action == "read":
+            return session_manager.read(session_id)
+        elif action == "kill":
+            return session_manager.kill(session_id)
+        elif action == "send":
+            session_manager.send(session_id, command)
+            return {"sent": True, "session_id": session_id}
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+    if detach:
+        if alive_timeout is None:
+            alive_timeout = config.SESSION_DEFAULT_ALIVE_TIMEOUT
+        validate_command(command)
+        return await session_manager.create(command, None, env, alive_timeout, _remote_executor)
+
     timeout = resolve_timeout(timeout)
 
     if parallel:
