@@ -169,8 +169,8 @@ def start_opensandbox_server():
 
 @mcp.tool()
 async def execute_local(
-    command: str,
-    cwd: str,
+    command: str = "",
+    cwd: str = "",
     timeout: int = None,
     env: dict = None,
     parallel: bool = False,
@@ -198,6 +198,8 @@ async def execute_local(
         execute_local("git status", cwd="D:/project", timeout=10)
         execute_local("echo hello", cwd="D:/project", shell="cmd")
         execute_local("cat huge.log", cwd="D:/project", output_file="D:/project/huge_log.txt")
+        execute_local(session_id="xxx", action="read")
+        execute_local(session_id="xxx", action="kill")
     """
     if session_id:
         if action == "read":
@@ -209,6 +211,9 @@ async def execute_local(
             return {"sent": True, "session_id": session_id}
         else:
             raise ValueError(f"Unknown action: {action}")
+
+    if not cwd:
+        raise ValueError("cwd is required for command execution")
 
     if detach:
         if alive_timeout is None:
@@ -235,7 +240,7 @@ async def execute_local(
 
 @mcp.tool()
 async def execute_sandbox(
-    command: str,
+    command: str = "",
     timeout: int = None,
     env: dict = None,
     parallel: bool = False,
@@ -254,6 +259,8 @@ async def execute_sandbox(
         execute_sandbox("echo hello")
         execute_sandbox("whoami && uname -a")
         execute_sandbox("pip install numpy && python -c 'import numpy'", timeout=120)
+        execute_sandbox(session_id="xxx", action="read")
+        execute_sandbox(session_id="xxx", action="kill")
     """
     global _opensandbox_server_started
 
@@ -311,7 +318,7 @@ async def execute_sandbox(
 
 @mcp.tool()
 async def execute_remote(
-    command: str,
+    command: str = "",
     timeout: int = None,
     env: dict = None,
     parallel: bool = False,
@@ -330,6 +337,8 @@ async def execute_remote(
         execute_remote("ls -la")
         execute_remote("whoami && uname -a", parallel=True)
         execute_remote("docker ps", timeout=10)
+        execute_remote(session_id="xxx", action="read")
+        execute_remote(session_id="xxx", action="kill")
     """
     global _remote_executor
 

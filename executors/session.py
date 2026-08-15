@@ -94,18 +94,24 @@ class ProcessSession:
             self._watchdog_task = asyncio.ensure_future(self._watchdog_loop())
 
     async def _read_loop(self, loop):
+        async def _read_stream(stream, append_fn):
+            try:
+                while True:
+                    line = await loop.run_in_executor(None, stream.readline)
+                    if not line:
+                        break
+                    append_fn(line)
+            except Exception:
+                pass
+
+        tasks = []
+        if self.proc.stdout:
+            tasks.append(asyncio.create_task(_read_stream(self.proc.stdout, self._append_stdout)))
+        if self.proc.stderr:
+            tasks.append(asyncio.create_task(_read_stream(self.proc.stderr, self._append_stderr)))
+
         try:
-            while True:
-                if self.proc.stdout:
-                    line = await loop.run_in_executor(None, self.proc.stdout.readline)
-                    if not line:
-                        break
-                    self._append_stdout(line)
-                if self.proc.stderr:
-                    line = await loop.run_in_executor(None, self.proc.stderr.readline)
-                    if not line:
-                        break
-                    self._append_stderr(line)
+            await asyncio.gather(*tasks)
         except Exception:
             pass
         finally:

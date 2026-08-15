@@ -103,3 +103,4 @@
 - **`_cleanup` 终止进程后必须设 `exit_code`**：watchdog 超时调用 `_cleanup` 后 `exit_code` 仍为 None 导致 `is_running` 仍为 True，`terminate()` 后应 `poll()` 或设 `-1`
 - **Mock `poll()` 需优先检查 `returncode`**：`FakeProcess.poll()` 应先检查 `returncode` 再查内部状态，否则 `terminate()` 后仍返回旧值
 - **`_build_docker_cmd(image)` 是必传位置参数**：不能误传 `env` 代替，签名是 `(command, image, mount, cwd)`
+- **FastMCP 必填参数拦截在函数体之前**：`session_id` 短路逻辑无法救 `command`/`cwd` 等必填参数缺失。方案：Schema 层给默认值（`str = ""`），运行时在短路之后做校验（`if not cwd: raise`），保留设计意图。
