@@ -93,3 +93,8 @@ SSH_CONFIG_MODE = "standard"  # "standard" | "custom"
 SSH_HOST_NAME = "rpig"        # standard 模式下指定 Host 别名
 SSH_PERSISTENT = True        # 长连接复用
 SSH_CONNECTION_TIMEOUT = 10   # SSH 连接超时秒数
+
+# Session Detach 配置
+SESSION_DEFAULT_ALIVE_TIMEOUT = 300
+SESSION_MAX_OUTPUT_LINES = 10000
+SESSION_MAX_OUTPUT_BYTES = 10 * 1024 * 1024  # 10MB
