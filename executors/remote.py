@@ -97,3 +97,8 @@ class RemoteExecutor(BaseExecutor):
         async def _run(cmd):
             return await self.execute(cmd, timeout=timeout, env=env)
         return await asyncio.gather(*[_run(c) for c in commands])
+
+    async def create_session(self, command, cwd=None, env=None, alive_timeout=None):
+        conn = await self._get_connection()
+        proc = await conn.create_process(command, env=env)
+        return proc

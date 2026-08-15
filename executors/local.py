@@ -104,3 +104,30 @@ class LocalExecutor(BaseExecutor):
         logger.info("execute_batch: %d commands", len(commands))
         tasks = [self.execute(cmd, cwd, timeout, env) for cmd in commands]
         return await asyncio.gather(*tasks)
+
+    async def create_session(self, command, cwd=None, env=None, alive_timeout=None):
+        loop = asyncio.get_running_loop()
+        merged_env = os.environ.copy()
+        merged_env.pop("VIRTUAL_ENV", None)
+        if sys.prefix != sys.base_prefix:
+            path_parts = merged_env.get("PATH", "").split(os.pathsep)
+            path_parts = [
+                p for p in path_parts
+                if not os.path.normpath(p).lower().startswith(os.path.normpath(sys.prefix).lower())
+            ]
+            merged_env["PATH"] = os.pathsep.join(path_parts)
+        if env:
+            merged_env.update(env)
+
+        def _start():
+            return subprocess.Popen(
+                command,
+                shell=True,
+                cwd=cwd,
+                env=merged_env,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+        return await loop.run_in_executor(None, _start)

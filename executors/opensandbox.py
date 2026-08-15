@@ -1,4 +1,5 @@
 import asyncio
+import subprocess
 import time
 from datetime import timedelta
 from opensandbox.config import ConnectionConfig
@@ -44,3 +45,19 @@ class OpenSandboxExecutor(BaseExecutor):
     async def execute_batch(self, commands, timeout=None, env=None):
         tasks = [self.execute(cmd, timeout=timeout, env=env) for cmd in commands]
         return await asyncio.gather(*tasks)
+
+    async def create_session(self, command, cwd=None, env=None, alive_timeout=None):
+        loop = asyncio.get_running_loop()
+
+        def _start():
+            return subprocess.Popen(
+                command,
+                shell=True,
+                cwd=cwd,
+                env=env,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+        return await loop.run_in_executor(None, _start)
