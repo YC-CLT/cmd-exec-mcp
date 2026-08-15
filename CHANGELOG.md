@@ -6,6 +6,9 @@
 
 - **Schema 校验缺陷**：`execute_local`/`execute_sandbox`/`execute_remote` 的 `command` 参数改为可选（`str = ""`），`execute_local` 的 `cwd` 改为可选（`str = ""`），使 `session_id` + `action="read"/"kill"` 无需传假参数即可通过 FastMCP 校验。`cwd` 在运行时强制校验（非 session 路径 `if not cwd` raise），保留设计意图。
 - **_read_loop 顺序读取 bug**：`session.py` 的 `_read_loop` 从顺序读 stdout/stderr 改为 `asyncio.create_task` 并发读，解决 stderr EOF 导致整循环 break 丢失 stdout 后续行 + exit_code 永不设置的问题。
+- **send 写入编码 bug**：`_write_loop` 中字符串数据直接写入 `proc.stdin` 报 `TypeError: a bytes-like object is required, not 'str'`，修复为 `encoded = data.encode() if isinstance(data, str) else data`。
+- **exit_code 时序 bug**：Windows `shell=True` 下 pipe 关闭与进程退出之间存在时间差，`poll()` 在纳秒级窗口内返回 `None` 但进程已退出。修复：`poll()` 返回 `None` 时 `sleep(0.1)` 后重试一次。
+- **_read_loop 诊断日志**：新增 `_read_loop` 全链路日志（启动/task 创建/stdout EOF/stderr EOF/gather 完成/exit_code），便于排查 pipe 阻塞与退出时序问题。
 
 ## 2026-08-15 — Session Detach 实现
 

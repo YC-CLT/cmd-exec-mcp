@@ -104,3 +104,6 @@
 - **Mock `poll()` 需优先检查 `returncode`**：`FakeProcess.poll()` 应先检查 `returncode` 再查内部状态，否则 `terminate()` 后仍返回旧值
 - **`_build_docker_cmd(image)` 是必传位置参数**：不能误传 `env` 代替，签名是 `(command, image, mount, cwd)`
 - **FastMCP 必填参数拦截在函数体之前**：`session_id` 短路逻辑无法救 `command`/`cwd` 等必填参数缺失。方案：Schema 层给默认值（`str = ""`），运行时在短路之后做校验（`if not cwd: raise`），保留设计意图。
+- **`_write_loop` 写入 pipe 前必须编码**：`proc.stdin.write()` 需要 `bytes`，字符串直接写入报 `TypeError`。用 `data.encode() if isinstance(data, str) else data` 统一处理。
+- **Windows pipe 关闭与进程退出有时间差**：`shell=True` 下 `readline()` 返回 EOF 时进程可能尚未"死透"，`poll()` 返回 `None`。修复：`poll()` 返回 `None` 时 `sleep(0.1)` 后重试。
+- **并发 I/O 代码必须加诊断日志**：`_read_loop` 无日志时无法判断是管道阻塞、线程池异常还是 gather 未完成。日志应覆盖：启动、每个 task 的 EOF/异常、gather 结果、exit_code。
