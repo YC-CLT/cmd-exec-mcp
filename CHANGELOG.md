@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-08-16 — OpenSandbox Server 懒加载 + 空闲超时
+
+### 修复
+
+- **`start_opensandbox_server()` 无就绪等待**：新增 `_wait_for_server_ready()` 轮询 `/health` 端点，15 秒超时可配 `SANDBOX_OPEN_SERVER_STARTUP_TIMEOUT`
+- **Server 崩溃不自愈**：新增 `_ensure_opensandbox_server()` 自动检测 `poll()` 并重启，替代旧的手动 flag 模式
+- **无空闲超时**：新增 `_idle_watchdog_loop()` 后台任务，默认 600 秒无请求自动关闭 server，`SANDBOX_OPEN_SERVER_IDLE_TIMEOUT=-1` 永不关闭
+
 ## 2026-08-16 — Tool Description 精简 + Flaky 修复
 
 ### 修复

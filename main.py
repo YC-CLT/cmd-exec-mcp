@@ -1,9 +1,12 @@
 # main.py
+import asyncio
 import atexit
 import os
 import platform
 import subprocess
 import sys
+import time
+import urllib.request
 import config
 from config import (
     RESULT_FIELDS,
@@ -152,10 +155,14 @@ opensandbox = OpenSandboxExecutor()
 _remote_executor = RemoteExecutor()
 session_manager = SessionManager()
 _opensandbox_server_started = False
+_opensandbox_server_proc = None
+_opensandbox_last_used = 0.0
+_opensandbox_idle_task = None
 
 
 def start_opensandbox_server():
-    """启动 opensandbox-server 子进程。"""
+    """启动 opensandbox-server 子进程，等待就绪后返回。"""
+    global _opensandbox_server_proc, _opensandbox_idle_task
     config_path = os.path.join(os.path.dirname(__file__), "docs", "opensandbox", ".sandbox.toml")
     proc = subprocess.Popen(
         ["opensandbox-server", "--config", config_path],
@@ -163,8 +170,74 @@ def start_opensandbox_server():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    atexit.register(lambda: proc.terminate())
-    return proc
+    _opensandbox_server_proc = proc
+    atexit.register(_opensandbox_shutdown)
+
+    _wait_for_server_ready()
+    _opensandbox_last_used = time.time()
+    _schedule_idle_watchdog()
+
+
+def _wait_for_server_ready():
+    """轮询 health 端点直到 server 就绪或超时。"""
+    host = config.SANDBOX_OPEN_SERVER_HOST or "localhost"
+    port = config.SANDBOX_OPEN_SERVER_PORT or 8080
+    url = f"http://{host}:{port}/health"
+    deadline = time.time() + config.SANDBOX_OPEN_SERVER_STARTUP_TIMEOUT
+    while time.time() < deadline:
+        try:
+            urllib.request.urlopen(url, timeout=2)
+            return
+        except Exception:
+            time.sleep(0.5)
+    raise RuntimeError(
+        f"OpenSandbox server did not become ready within {config.SANDBOX_OPEN_SERVER_STARTUP_TIMEOUT}s"
+    )
+
+
+def _ensure_opensandbox_server():
+    """确保 server 在运行，崩了则重启。"""
+    global _opensandbox_server_started, _opensandbox_server_proc
+    if _opensandbox_server_proc is not None and _opensandbox_server_proc.poll() is not None:
+        _opensandbox_server_started = False
+        _opensandbox_server_proc = None
+    if not _opensandbox_server_started:
+        start_opensandbox_server()
+        _opensandbox_server_started = True
+    _opensandbox_last_used = time.time()
+
+
+def _opensandbox_shutdown():
+    """关闭 server 子进程 + 取消 idle watchdog。"""
+    global _opensandbox_server_proc, _opensandbox_idle_task, _opensandbox_server_started
+    if _opensandbox_idle_task and not _opensandbox_idle_task.done():
+        _opensandbox_idle_task.cancel()
+    if _opensandbox_server_proc and _opensandbox_server_proc.poll() is None:
+        _opensandbox_server_proc.terminate()
+    _opensandbox_server_started = False
+
+
+def _schedule_idle_watchdog():
+    """启动后台 idle 超时监控。"""
+    global _opensandbox_idle_task
+    if config.SANDBOX_OPEN_SERVER_IDLE_TIMEOUT <= 0:
+        return
+    if _opensandbox_idle_task and not _opensandbox_idle_task.done():
+        _opensandbox_idle_task.cancel()
+    _opensandbox_idle_task = asyncio.ensure_future(_idle_watchdog_loop())
+
+
+async def _idle_watchdog_loop():
+    """每 30 秒检查，空闲超时则关闭 server。"""
+    try:
+        while True:
+            await asyncio.sleep(30)
+            elapsed = time.time() - _opensandbox_last_used
+            if elapsed >= config.SANDBOX_OPEN_SERVER_IDLE_TIMEOUT:
+                _opensandbox_shutdown()
+                break
+    except asyncio.CancelledError:
+        pass
 
 
 @mcp.tool()
@@ -292,9 +365,8 @@ async def execute_sandbox(
 
     timeout = resolve_timeout(timeout)
 
-    if config.SANDBOX_BACKEND == "opensandbox" and not _opensandbox_server_started:
-        start_opensandbox_server()
-        _opensandbox_server_started = True
+    if config.SANDBOX_BACKEND == "opensandbox":
+        _ensure_opensandbox_server()
 
     if parallel:
         commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]

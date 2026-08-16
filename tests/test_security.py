@@ -103,8 +103,7 @@ class TestSandboxBackendRouting:
             return ExecResult(command_echo=command)
 
         import main
-        monkeypatch.setattr(main, "start_opensandbox_server", lambda: None)
-        monkeypatch.setattr(main, "_opensandbox_server_started", False)
+        monkeypatch.setattr(main, "_ensure_opensandbox_server", lambda: None)
         monkeypatch.setattr(main.opensandbox, "execute", mock_execute)
 
         await main.execute_sandbox("echo opensandbox")

@@ -85,6 +85,10 @@ SANDBOX_OPEN_RUNTIME_ENV = {
     "GOPROXY": "https://goproxy.cn,direct",
 }
 
+# OpenSandbox Server 懒加载 + 空闲超时
+SANDBOX_OPEN_SERVER_STARTUP_TIMEOUT = 15   # 启动后等待就绪的最长秒数
+SANDBOX_OPEN_SERVER_IDLE_TIMEOUT = 600     # 无请求空闲多久后自动关闭秒数，-1 永不关闭
+
 # OpenSandbox 命令前缀（备用，正常情况下 entrypoint 已设置 PATH）
 SANDBOX_OPEN_PREFIX = ""
 
