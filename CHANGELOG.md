@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-16 — Tool Description 精简 + Flaky 修复
+
+### 修复
+
+- **`test_watchdog_reset_on_read` flaky**：`_read_loop` 修复后 `FakeProcess` 立即 EOF 导致 `exit_code` 被设置，`is_running` 恒为 `False`。修复：`FakeProcess` 加 `never_eof` 模式，watchdog 测试用 `never_eof=True` 保持进程存活。
+
+### 改进
+
+- **Tool 描述精简**：`execute_sandbox`/`execute_remote` 用"同上 execute_local"复用参数说明，示例改为真实场景（git status、npm install、docker ps、systemctl status 等），去掉无意义的 echo/whoami。
+
 ## 2026-08-15 — Session Detach Bug 修复
 
 ### 修复

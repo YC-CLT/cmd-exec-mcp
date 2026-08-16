@@ -11,21 +11,22 @@ def session_manager():
 
 
 class FakeExecutor:
-    def __init__(self):
-        pass
+    def __init__(self, never_eof=False):
+        self._never_eof = never_eof
 
     async def create_session(self, command, cwd, env, alive_timeout):
-        return FakeProcess()
+        return FakeProcess(never_eof=self._never_eof)
 
 
 class FakeProcess:
-    def __init__(self):
+    def __init__(self, never_eof=False):
         self.pid = 12345
         self.stdin = FakeStdin()
         self.stdout_lines = [b"hello\n", b"world\n"]
         self.stderr_lines = []
         self.returncode = None
         self._stdout_idx = 0
+        self._never_eof = never_eof
 
     @property
     def stdout(self):
@@ -38,6 +39,8 @@ class FakeProcess:
     def poll(self):
         if self.returncode is not None:
             return self.returncode
+        if self._never_eof:
+            return None
         if self._stdout_idx >= len(self.stdout_lines):
             return 0
         return None
@@ -55,6 +58,8 @@ class FakeStdout:
             line = self._proc.stdout_lines[self._proc._stdout_idx]
             self._proc._stdout_idx += 1
             return line
+        if self._proc._never_eof:
+            return b""  # 模拟阻塞，不返回 EOF
         return b""
 
 
@@ -130,7 +135,7 @@ async def test_kill_nonexistent_session(session_manager):
 
 @pytest.mark.asyncio
 async def test_watchdog_timeout(session_manager):
-    executor = FakeExecutor()
+    executor = FakeExecutor(never_eof=True)
     result = await session_manager.create("cat", ".", {}, 1, executor)
     sid = result["session_id"]
     await asyncio.sleep(1.5)
@@ -140,7 +145,7 @@ async def test_watchdog_timeout(session_manager):
 
 @pytest.mark.asyncio
 async def test_watchdog_reset_on_read(session_manager):
-    executor = FakeExecutor()
+    executor = FakeExecutor(never_eof=True)
     result = await session_manager.create("cat", ".", {}, 2, executor)
     sid = result["session_id"]
     await asyncio.sleep(0.5)
