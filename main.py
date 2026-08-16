@@ -204,7 +204,6 @@ def _ensure_opensandbox_server():
     if not _opensandbox_server_started:
         start_opensandbox_server()
         _opensandbox_server_started = True
-    _opensandbox_last_used = time.time()
 
 
 def _opensandbox_shutdown():
@@ -368,30 +367,34 @@ async def execute_sandbox(
     if config.SANDBOX_BACKEND == "opensandbox":
         _ensure_opensandbox_server()
 
-    if parallel:
-        commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
+    try:
+        if parallel:
+            commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
+            if config.SANDBOX_BACKEND == "docker":
+                for cmd in commands:
+                    validate_sandbox_command(cmd)
+                results = await sandbox.execute_batch(
+                    commands, timeout=timeout, env=env
+                )
+            else:
+                results = await opensandbox.execute_batch(
+                    commands, timeout=timeout, env=env
+                )
+            return [r.to_dict(fields) for r in results]
+
         if config.SANDBOX_BACKEND == "docker":
-            for cmd in commands:
-                validate_sandbox_command(cmd)
-            results = await sandbox.execute_batch(
-                commands, timeout=timeout, env=env
+            validate_sandbox_command(command)
+            result = await sandbox.execute(
+                command, timeout=timeout, env=env
             )
         else:
-            results = await opensandbox.execute_batch(
-                commands, timeout=timeout, env=env
+            result = await opensandbox.execute(
+                command, timeout=timeout, env=env
             )
-        return [r.to_dict(fields) for r in results]
-
-    if config.SANDBOX_BACKEND == "docker":
-        validate_sandbox_command(command)
-        result = await sandbox.execute(
-            command, timeout=timeout, env=env
-        )
-    else:
-        result = await opensandbox.execute(
-            command, timeout=timeout, env=env
-        )
-    return _handle_output_file(result, output_file).to_dict(fields)
+        return _handle_output_file(result, output_file).to_dict(fields)
+    finally:
+        if config.SANDBOX_BACKEND == "opensandbox":
+            _opensandbox_last_used = time.time()
 
 
 @mcp.tool()
