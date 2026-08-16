@@ -23,6 +23,7 @@ A simple command execution MCP server supporting local execution, Docker/OpenSan
 - Security mode: restricted (whitelist + blacklist) / full mode
 - Sequential / parallel execution
 - Timeout control
+- Session detach: background long-running processes with read/send/kill
 - Logging
 
 ### Installation
@@ -74,7 +75,10 @@ Edit `config.py`:
 | `SANDBOX_OPEN_SERVER_PORT` | `8080` | OpenSandbox Server port |
 | `SANDBOX_OPEN_API_KEY` | `"cmd-exec-mcp-dev"` | OpenSandbox API Key (required for production) |
 | `DEFAULT_TIMEOUT` | `30` | Timeout in seconds (-1 for unlimited) |
-| `OUTPUT_TRUNCATE_LENGTH` | `2000` | stdout truncation length when using `output_file` |
+| `OUTPUT_TRUNCATE_LENGTH` | `8000` | stdout truncation length when using `output_file` |
+| `SESSION_DEFAULT_ALIVE_TIMEOUT` | `300` | Session alive timeout in seconds, -1 for unlimited |
+| `SESSION_MAX_OUTPUT_LINES` | `10000` | Max lines buffered per session |
+| `SESSION_MAX_OUTPUT_BYTES` | `10485760` | Max bytes buffered per session (10 MB) |
 | `RESULT_FIELDS` | `{"stdout":True,...}` | Return field toggles |
 | `SSH_CONFIG_MODE` | `"standard"` | SSH config mode: `"standard"` \| `"custom"` |
 | `SSH_HOST_NAME` | — | SSH Host alias for standard mode |
@@ -146,6 +150,10 @@ Execute a command on the host machine.
 | `fields` | dict | null | Return field filter |
 | `shell` | str | null | Override shell: `"pwsh"`\|`"cmd"`\|`"bash"`\|`"wsl"` |
 | `output_file` | str | "" | Write full stdout to disk, return truncated preview |
+| `detach` | bool | false | Run as background session |
+| `session_id` | str | null | Session ID for read/send/kill |
+| `action` | str | "send" | `"read"`\|`"send"`\|`"kill"` |
+| `alive_timeout` | int | 300 | Session alive timeout in seconds |
 
 #### execute_sandbox
 
@@ -169,6 +177,10 @@ Execute a command in a sandbox (Docker/OpenSandbox, determined by `SANDBOX_BACKE
 | `env` | dict | null | Environment variables |
 | `fields` | dict | null | Return field filter |
 | `output_file` | str | "" | Write full stdout to disk, return truncated preview |
+| `detach` | bool | false | Run as background session |
+| `session_id` | str | null | Session ID for read/send/kill |
+| `action` | str | "send" | `"read"`\|`"send"`\|`"kill"` |
+| `alive_timeout` | int | 300 | Session alive timeout in seconds |
 
 #### execute_remote
 
@@ -192,6 +204,45 @@ Execute a command on a remote server via SSH. See SSH prerequisites above.
 | `env` | dict | null | Environment variables |
 | `fields` | dict | null | Return field filter |
 | `output_file` | str | "" | Write full stdout to disk, return truncated preview |
+| `detach` | bool | false | Run as background session |
+| `session_id` | str | null | Session ID for read/send/kill |
+| `action` | str | "send" | `"read"`\|`"send"`\|`"kill"` |
+| `alive_timeout` | int | 300 | Session alive timeout in seconds |
+
+### Session Detach
+
+Run long-lived background processes (e.g., dev servers, REPLs) as sessions:
+
+```json
+// Start a background session
+{
+  "command": "python -m http.server 8080",
+  "cwd": "/tmp",
+  "detach": true
+}
+// Returns: {"session_id": "abc123"}
+
+// Read output
+{
+  "session_id": "abc123",
+  "action": "read"
+}
+
+// Send input
+{
+  "session_id": "abc123",
+  "action": "send",
+  "command": "some input\n"
+}
+
+// Kill session
+{
+  "session_id": "abc123",
+  "action": "kill"
+}
+```
+
+Sessions auto-terminate after `alive_timeout` seconds of inactivity (default 300, -1 for unlimited). Output is buffered up to `SESSION_MAX_OUTPUT_BYTES`.
 
 ### Testing
 
@@ -239,6 +290,7 @@ MIT
 - 安全模式: 受限模式（白名单+黑名单）/ 完全模式
 - 单步/并行执行
 - 超时控制
+- 会话分离：后台长时进程，支持 read/send/kill
 - 日志记录
 
 ### 安装
@@ -290,7 +342,10 @@ uv sync
 | `SANDBOX_OPEN_SERVER_PORT` | `8080` | OpenSandbox Server 端口 |
 | `SANDBOX_OPEN_API_KEY` | `"cmd-exec-mcp-dev"` | OpenSandbox API Key（生产必填） |
 | `DEFAULT_TIMEOUT` | `30` | 超时秒数（-1 无限制） |
-| `OUTPUT_TRUNCATE_LENGTH` | `2000` | 输出落盘时 stdout 截断长度 |
+| `OUTPUT_TRUNCATE_LENGTH` | `8000` | 输出落盘时 stdout 截断长度 |
+| `SESSION_DEFAULT_ALIVE_TIMEOUT` | `300` | 会话默认存活超时秒数，-1 无限 |
+| `SESSION_MAX_OUTPUT_LINES` | `10000` | 会话最大缓冲行数 |
+| `SESSION_MAX_OUTPUT_BYTES` | `10485760` | 会话最大缓冲字节（10 MB） |
 | `RESULT_FIELDS` | `{"stdout":True,...}` | 返回字段开关 |
 | `SSH_CONFIG_MODE` | `"standard"` | SSH 配置模式: `"standard"` \| `"custom"` |
 | `SSH_HOST_NAME` | — | standard 模式 SSH Host 别名 |
@@ -363,6 +418,10 @@ uv sync
 | `fields` | dict | null | 返回字段过滤 |
 | `shell` | str | null | 指定 Shell: `"pwsh"`\|`"cmd"`\|`"bash"`\|`"wsl"` |
 | `output_file` | str | "" | 输出过长时落盘，返回截断预览 |
+| `detach` | bool | false | 后台会话模式 |
+| `session_id` | str | null | 会话 ID，用于 read/send/kill |
+| `action` | str | "send" | `"read"`\|`"send"`\|`"kill"` |
+| `alive_timeout` | int | 300 | 会话存活超时秒数 |
 
 #### execute_sandbox
 
@@ -386,6 +445,10 @@ uv sync
 | `env` | dict | null | 环境变量 |
 | `fields` | dict | null | 返回字段过滤 |
 | `output_file` | str | "" | 输出过长时落盘，返回截断预览 |
+| `detach` | bool | false | 后台会话模式 |
+| `session_id` | str | null | 会话 ID，用于 read/send/kill |
+| `action` | str | "send" | `"read"`\|`"send"`\|`"kill"` |
+| `alive_timeout` | int | 300 | 会话存活超时秒数 |
 
 #### execute_remote
 
@@ -409,6 +472,45 @@ uv sync
 | `env` | dict | null | 环境变量 |
 | `fields` | dict | null | 返回字段过滤 |
 | `output_file` | str | "" | 输出过长时落盘，返回截断预览 |
+| `detach` | bool | false | 后台会话模式 |
+| `session_id` | str | null | 会话 ID，用于 read/send/kill |
+| `action` | str | "send" | `"read"`\|`"send"`\|`"kill"` |
+| `alive_timeout` | int | 300 | 会话存活超时秒数 |
+
+### 会话分离
+
+运行后台长时进程（如开发服务器、REPL）作为会话:
+
+```json
+// 启动后台会话
+{
+  "command": "python -m http.server 8080",
+  "cwd": "/tmp",
+  "detach": true
+}
+// 返回: {"session_id": "abc123"}
+
+// 读取输出
+{
+  "session_id": "abc123",
+  "action": "read"
+}
+
+// 发送输入
+{
+  "session_id": "abc123",
+  "action": "send",
+  "command": "一些输入\n"
+}
+
+// 关闭会话
+{
+  "session_id": "abc123",
+  "action": "kill"
+}
+```
+
+会话在 `alive_timeout` 秒无活动后自动终止（默认 300，-1 无限）。输出缓冲上限为 `SESSION_MAX_OUTPUT_BYTES`。
 
 ### 测试
 
