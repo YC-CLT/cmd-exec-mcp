@@ -182,22 +182,28 @@ async def execute_local(
     action: str = "send",
     alive_timeout: int = None,
 ) -> dict | list[dict]:
-    """在本地执行命令（受限模式黑白名单校验，完全模式放行）。
+    """在本地执行 Shell 命令，支持黑白名单校验、并行执行、会话管理。
 
-    command: 要执行的命令, 并行用 && 分隔 + parallel=True
-    cwd: 工作目录（必填）, timeout: 超时秒数(-1无限), env: 环境变量
-    parallel: 并行执行, fields: 返回字段过滤如 {"stdout": True}
-    shell: 指定 Shell，可选 "pwsh"|"cmd"|"bash"|"wsl"，默认自动检测
-    output_file: 输出过长时指定绝对路径如 D:/project/out.txt，完整 stdout 落盘，返回截断预览
-    detach: 后台运行会话, session_id: 会话ID, action: read/send/kill, alive_timeout: 超时秒数
+    command: 命令字符串，并行使 && 分隔 + parallel=True
+    cwd: 工作目录（必填）
+    timeout: 超时秒数，-1 无限，默认 30
+    env: 环境变量 dict，如 {"NODE_ENV": "production"}
+    parallel: True 时按 && 拆分并行执行
+    fields: 返回字段过滤，如 {"stdout": True, "exit_code": True}
+    shell: 指定解释器 "cmd"|"pwsh"|"bash"|"wsl"，默认自动检测
+    output_file: 输出过长时指定绝对路径落盘，返回截断预览
+    detach: True 后台运行，返回 session_id 供后续 read/send/kill
+    session_id: 已有会话 ID，与 action 配合
+    action: "read" 读输出 | "send" 发 stdin | "kill" 终止
+    alive_timeout: 会话保活超时秒数，默认 300
+
     返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
 
-    Example:
-        execute_local("echo hello", cwd="D:/project")
-        execute_local("echo one && echo two", cwd="D:/project", parallel=True)
-        execute_local("git status", cwd="D:/project", timeout=10)
-        execute_local("echo hello", cwd="D:/project", shell="cmd")
-        execute_local("cat huge.log", cwd="D:/project", output_file="D:/project/huge_log.txt")
+    示例:
+        execute_local("git status", cwd="D:/project")
+        execute_local("npm install", cwd="D:/project", timeout=120)
+        execute_local("go build && go test", cwd="D:/project", parallel=True)
+        execute_local("python -c 'print(input())'", cwd="D:/project", detach=True)
         execute_local(session_id="xxx", action="read")
         execute_local(session_id="xxx", action="kill")
     """
@@ -251,14 +257,14 @@ async def execute_sandbox(
     action: str = "send",
     alive_timeout: int = None,
 ) -> dict | list[dict]:
-    """在沙箱中执行命令。
+    """在隔离容器中执行命令（Docker/OpenSandbox），独立黑白名单。
 
-    无 cwd/shell 参数；并行时每个命令独立容器，其余参数和返回格式同 execute_local
+    无 cwd/shell 参数。其余参数和返回格式同上 execute_local。
 
-    Example:
-        execute_sandbox("echo hello")
-        execute_sandbox("whoami && uname -a")
-        execute_sandbox("pip install numpy && python -c 'import numpy'", timeout=120)
+    示例:
+        execute_sandbox("pip install numpy && python -c 'import numpy; print(numpy.__version__)'", timeout=120)
+        execute_sandbox("node -e 'console.log(process.env)'", env={"DEBUG": "1"})
+        execute_sandbox("python -c 'print(input())'", detach=True)
         execute_sandbox(session_id="xxx", action="read")
         execute_sandbox(session_id="xxx", action="kill")
     """
@@ -329,14 +335,15 @@ async def execute_remote(
     action: str = "send",
     alive_timeout: int = None,
 ) -> dict | list[dict]:
-    """在远程服务器执行命令（SSH，受限模式黑白名单同 execute_local）。
+    """在远程服务器执行命令（SSH），黑白名单同 execute_local。
 
-    无 cwd/shell 参数，其余参数和返回格式同 execute_local
+    无 cwd/shell 参数。其余参数和返回格式同上 execute_local。
 
-    Example:
-        execute_remote("ls -la")
-        execute_remote("whoami && uname -a", parallel=True)
-        execute_remote("docker ps", timeout=10)
+    示例:
+        execute_remote("docker ps --format '{{.Names}}'", timeout=10)
+        execute_remote("systemctl status nginx")
+        execute_remote("df -h && free -m", parallel=True)
+        execute_remote("python -c 'print(input())'", detach=True)
         execute_remote(session_id="xxx", action="read")
         execute_remote(session_id="xxx", action="kill")
     """
