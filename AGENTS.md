@@ -25,31 +25,29 @@
 
 | 常量 | 位置 | 说明 |
 |------|------|------|
-| `SECURITY_MODE` | config.py | 本地/远程安全模式 restricted/full |
-| `COMMAND_WHITELIST` / `BLACKLIST` | config.py | 本地/远程黑白名单 |
+| `SECURITY_MODE` | config.py | 安全模式 restricted/full |
+| `COMMAND_WHITELIST` / `BLACKLIST` | config.py | 本地/远程命令黑白名单 |
 | `SANDBOX_BACKEND` | config.py | 沙箱后端 docker/opensandbox |
-| `SANDBOX_SECURITY_MODE` | config.py | 沙箱安全模式（仅 Docker 后端生效） |
-| `SANDBOX_COMMAND_WHITELIST` / `BLACKLIST` | config.py | 沙箱黑白名单 |
+| `SANDBOX_SECURITY_MODE` | config.py | 沙箱安全模式（仅 Docker 后端） |
+| `SANDBOX_COMMAND_WHITELIST` / `BLACKLIST` | config.py | 沙箱命令黑白名单 |
 | `SANDBOX_DEFAULT_IMAGE` | config.py | Docker 沙箱默认镜像 |
-| `SANDBOX_OPEN_*` | config.py | OpenSandbox 连接配置组（TEMPLATE/HOST/PORT/API_KEY） |
-| `DEFAULT_TIMEOUT` | config.py | 默认超时 30 秒，-1 无限制 |
-| `FORCE_SHELL` | config.py | 强制指定 Shell |
-| `SSH_CONFIG_MODE` | config.py | SSH 配置模式 standard/custom |
-| `SSH_HOST_NAME` | config.py | standard 模式 SSH Host 别名 |
-| `SSH_PERSISTENT` | config.py | 长连接复用开关 |
-| `WSL_DISTRO` | config.py | WSL 发行版名（shell="wsl" 时生效） |
-| `WSL_USER` | config.py | WSL 用户名（shell="wsl" 时生效） |
+| `SANDBOX_OPEN_*` | config.py | OpenSandbox 连接配置组 |
+| `DEFAULT_TIMEOUT` | config.py | 默认超时 30s，-1 无限 |
+| `FORCE_SHELL` | config.py | 强制指定 Shell pwsh/cmd/bash/wsl |
+| `SSH_CONFIG_MODE` | config.py | SSH 配置 standard/custom |
+| `SSH_PERSISTENT` | config.py | SSH 长连接复用 |
+| `WSL_DISTRO` / `WSL_USER` | config.py | WSL 发行版/用户名 |
 | `OUTPUT_TRUNCATE_LENGTH` | config.py | output_file 截断长度 |
-| `SESSION_DEFAULT_ALIVE_TIMEOUT` | config.py | session 默认 alive 超时 300s |
-| `SESSION_MAX_OUTPUT_LINES` | config.py | session 输出最大行数 10000 |
-| `SESSION_MAX_OUTPUT_BYTES` | config.py | session 输出最大字节 10MB |
+| `SESSION_DEFAULT_ALIVE_TIMEOUT` | config.py | session 默认 alive 超时 |
+| `SESSION_MAX_OUTPUT_LINES` | config.py | session 输出最大行数 |
+| `SESSION_MAX_OUTPUT_BYTES` | config.py | session 输出最大字节 |
 
 ## 规则
 
-- **monkeypatch 必须用 `import config` + `config.X`**：`from config import X` 创建本地副本，monkeypatch 无法穿透；executor 同理，需 patch `executors.模块名.X`
-- **executor 签名变更全链适配**：方法签名变动时，main.py 工具、测试、同接口的其他 executor 都要同步
-- **config 重命名全量 grep**：常量改名/移除后，搜索所有引用点确保同步更新
-- **跨 Task 依赖等待**：并行派发时，先检查上游 Task 产物是否存在，确认就绪后再动自己的代码
+- **monkeypatch 必须用 `import config` + `config.X`**：`from config import X` 创建本地副本，monkeypatch 无法穿透；executor 同理 patch `executors.模块名.X`
+- **executor 签名变更需全链同步**：方法签名变，main.py 工具、测试、同接口其他 executor 都改
+- **config 重命名全量 grep**：常量改名/移除后搜索所有引用
+- **跨 Task 依赖等待**：并行派发时先检查上游产物是否存在
 
 ## 查文献指南
 
@@ -81,10 +79,10 @@
 ## 经验/坑点
 
 - **WebFetch 无法使用**：用 `wet-mcp extract`
-- **Temp 目录不可读，MCP 输出无结构化**：Read 工具无法访问 `D:\Temp`，MCP 长输出需 Copy-Item 到项目根目录，然后正则替换`\\n`为`\n`，否则将输出超长行
+- **Temp 目录不可读，MCP 输出无结构化**：Read 工具无法访问 `D:\Temp`，长输出需 Copy-Item 到项目根目录后用正则替换 `\\n` 为 `\n`
 - **uv sync 会清 dev 依赖**：`uv sync` 只同步 `[project.dependencies]`，依赖变更后使用 `uv pip install -e ".[dev]"` 保留 dev 依赖
 - **Windows shell 单引号陷阱**：cmd.exe 不认单引号，跨平台测试命令一律用双引号
-- **subprocess 三大坑**：① `env=` 替换整个环境变量导致 PATH 丢失，先 `os.environ.copy()` 再 `.update()`；② `shell=True` + `cmd /c` 双层包装导致引号转义断裂；③ `timeout=` 只杀父进程，子进程残留，用 `Popen` + `communicate` + `taskkill /F /T /PID`
+- **subprocess 三大坑**：① `env=` 替换整个环境，先 `os.environ.copy()` 再 `.update()`；② `shell=True` + `cmd /c` 双层引号转义断裂；③ `timeout=` 只杀父进程，用 `Popen` + `taskkill /F /T /PID`
 - **Windows 管道句柄继承**：`asyncio.create_subprocess_shell` 管道可被孙子进程继承，改用 `loop.run_in_executor` + `subprocess.run(stdin=DEVNULL, capture_output=True)`
 - **OpenSandbox entrypoint 陷阱**：默认 entrypoint 不执行 `code-interpreter.sh`，Python 等运行时不在 PATH。必须显式传 `entrypoint=["/opt/code-interpreter/code-interpreter.sh"]` + env 版本变量
 - **OpenSandbox env 注入优于命令前缀**：镜像源等环境变量通过 `Sandbox.create(env=...)` 注入，比 Docker 后端 `--entrypoint` 方案更干净
@@ -98,7 +96,7 @@
 - **pwsh 冷启动 ~2s 是因为 profile**：`-NoProfile` 跳过模块加载（posh-git/oh-my-posh 等），降到 0.5s；`-NonInteractive` 关闭交互提示；`$PSStyle.OutputRendering = 'PlainText'` 去 ANSI
 - **WSL 用 `--shell-type standard` 不用 `-lc`**：`-lc`（login shell）触发 profile 加载，慢且编码乱；`--shell-type standard` + `-c` 干净快速
 - **output_file 路径由 AI 控制**：传绝对路径如 `D:/project/out.txt`，不依赖 MCP 进程的 cwd；文件名 basename 消毒防路径穿越
-- **env 穿透审计四件套**：① `os.environ.copy()` 后 `pop("VIRTUAL_ENV")` 防 venv 泄漏；② PATH 中 strip `sys.prefix` 及 `Scripts` 子目录，防 `uv run`/`where python` 解析到错误的 python；③ `env` 参数必须传到子进程，不能静默忽略；④ Docker/SSH 等隔离执行器不继承父进程环境
+- **env 穿透审计四件套**：① `os.environ.copy()` 后 `pop("VIRTUAL_ENV")` 防 venv 泄漏；② PATH 中 strip `sys.prefix` 防 `uv run` 解析到错误 python；③ `env` 参数必须传到子进程；④ Docker/SSH 隔离执行器不继承父进程环境
 - **Session `_read_loop` 顺序读 stdout/stderr 会提前退出**：逐个 `readline` 时 stderr 返回空串被误判为 EOF，应用 `asyncio.create_task` 并行读或 `select` 多路复用
 - **`_cleanup` 终止进程后必须设 `exit_code`**：watchdog 超时调用 `_cleanup` 后 `exit_code` 仍为 None 导致 `is_running` 仍为 True，`terminate()` 后应 `poll()` 或设 `-1`
 - **Mock `poll()` 需优先检查 `returncode`**：`FakeProcess.poll()` 应先检查 `returncode` 再查内部状态，否则 `terminate()` 后仍返回旧值
