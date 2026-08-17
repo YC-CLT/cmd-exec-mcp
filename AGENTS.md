@@ -61,6 +61,7 @@
 ## 工具/MCP
 
 - **wet-mcp**：`search`/`extract`/`media`/`help`/`config`，`extract` 参数名是 `urls`（数组），详见 `mcp_tools_summary.csv`
+- **cmd-exec-mcp Skill**：`skills/cmd-exec-mcp/SKILL.md`，Agent 调用指南（工具选择、参数速查、常见错误）
 
 ## 工作流
 

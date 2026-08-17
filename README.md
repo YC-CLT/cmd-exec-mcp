@@ -24,6 +24,7 @@ A simple command execution MCP server supporting local execution, Docker/OpenSan
 - Sequential / parallel execution
 - Timeout control
 - Session detach: background long-running processes with read/send/kill
+- Agent Skill: `skills/cmd-exec-mcp/SKILL.md` — quick reference for AI agents
 - Logging
 
 ### Installation
@@ -74,6 +75,8 @@ Edit `config.py`:
 | `SANDBOX_OPEN_SERVER_HOST` | `"localhost"` | OpenSandbox Server host |
 | `SANDBOX_OPEN_SERVER_PORT` | `8080` | OpenSandbox Server port |
 | `SANDBOX_OPEN_API_KEY` | `"cmd-exec-mcp-dev"` | OpenSandbox API Key (required for production) |
+| `SANDBOX_OPEN_SERVER_STARTUP_TIMEOUT` | `15` | Max seconds to wait for server ready |
+| `SANDBOX_OPEN_SERVER_IDLE_TIMEOUT` | `600` | Idle seconds before auto-shutdown, -1 never |
 | `DEFAULT_TIMEOUT` | `30` | Timeout in seconds (-1 for unlimited) |
 | `OUTPUT_TRUNCATE_LENGTH` | `8000` | stdout truncation length when using `output_file` |
 | `SESSION_DEFAULT_ALIVE_TIMEOUT` | `300` | Session alive timeout in seconds, -1 for unlimited |
@@ -107,7 +110,7 @@ To use the OpenSandbox backend (`SANDBOX_BACKEND = "opensandbox"`):
 4. Switch backend: `config.py` → `SANDBOX_BACKEND = "opensandbox"`
 5. API Key: can be arbitrary for local dev, but don't leave it empty or it will block for manual confirmation; set `SANDBOX_OPEN_API_KEY` in production
 
-> `opensandbox-server` is started automatically on first `execute_sandbox` call and cleaned up via `atexit`.
+> `opensandbox-server` is started automatically on first `execute_sandbox` call and auto-shuts down after `SANDBOX_OPEN_SERVER_IDLE_TIMEOUT` seconds of inactivity (default 600).
 
 #### SSH Remote Execution Prerequisites
 
@@ -252,7 +255,7 @@ uv run pytest tests/ -v
 
 ### Non-Interactive Execution
 
-The MCP server sets `stdin` to `/dev/null` — interactive commands will fail or timeout. Add flags to skip prompts:
+For non-session commands, `stdin` is set to `/dev/null` — interactive commands will fail or timeout. Use **session detach** (see above) for interactive workflows (REPLs, shells, etc.). For one-shot commands, add flags to skip prompts:
 
 | Command | Flag | Notes |
 |---|---|---|
@@ -291,6 +294,7 @@ MIT
 - 单步/并行执行
 - 超时控制
 - 会话分离：后台长时进程，支持 read/send/kill
+- Agent Skill：`skills/cmd-exec-mcp/SKILL.md` — AI Agent 快速参考指南
 - 日志记录
 
 ### 安装
@@ -341,6 +345,8 @@ uv sync
 | `SANDBOX_OPEN_SERVER_HOST` | `"localhost"` | OpenSandbox Server 地址 |
 | `SANDBOX_OPEN_SERVER_PORT` | `8080` | OpenSandbox Server 端口 |
 | `SANDBOX_OPEN_API_KEY` | `"cmd-exec-mcp-dev"` | OpenSandbox API Key（生产必填） |
+| `SANDBOX_OPEN_SERVER_STARTUP_TIMEOUT` | `15` | 等待 Server 就绪的最长秒数 |
+| `SANDBOX_OPEN_SERVER_IDLE_TIMEOUT` | `600` | 空闲超时自动关闭秒数，-1 永不关闭 |
 | `DEFAULT_TIMEOUT` | `30` | 超时秒数（-1 无限制） |
 | `OUTPUT_TRUNCATE_LENGTH` | `8000` | 输出落盘时 stdout 截断长度 |
 | `SESSION_DEFAULT_ALIVE_TIMEOUT` | `300` | 会话默认存活超时秒数，-1 无限 |
@@ -375,7 +381,7 @@ uv sync
 4. 切换后端：`config.py` → `SANDBOX_BACKEND = "opensandbox"`
 5. API Key：本地开发随意，但不建议留空，否则会阻塞让你手动确认；生产环境设 `SANDBOX_OPEN_API_KEY`
 
-> 首次调用 `execute_sandbox` 时自动拉起 `opensandbox-server`，`atexit` 自动清理。
+> 首次调用 `execute_sandbox` 时自动拉起 `opensandbox-server`，空闲 `SANDBOX_OPEN_SERVER_IDLE_TIMEOUT` 秒（默认 600）后自动关闭。
 
 #### SSH 远程执行前置条件
 
@@ -520,7 +526,7 @@ uv run pytest tests/ -v
 
 ### 非交互执行
 
-MCP 服务端设置 `stdin` 为 `/dev/null`，交互式命令会失败或超时。请添加对应 flag 跳过提示：
+非会话模式下 `stdin` 设为 `/dev/null`，交互式命令会失败或超时。需要交互式工作流（REPL、Shell 等）用**会话分离**（见上）。一次性命令请添加对应 flag 跳过提示：
 
 | 命令 | 参数 | 说明 |
 |---|---|---|

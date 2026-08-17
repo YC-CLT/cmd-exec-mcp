@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-16 — Skill 配套文档
+
+### 新增
+
+- **`skills/cmd-exec-mcp/SKILL.md`**：Agent 使用指南，含工具选择决策图、参数速查、常见错误表、理性化反驳
+
 ## 2026-08-16 — OpenSandbox Server 懒加载 + 空闲超时
 
 ### 修复
