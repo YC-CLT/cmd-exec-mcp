@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -31,6 +32,11 @@ class LocalExecutor(BaseExecutor):
                 stdin=subprocess.DEVNULL,
                 capture_output=True,
             )
+        else:
+            try:
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                pass
 
     def _run_with_timeout(self, command, cwd, env, timeout):
         proc = subprocess.Popen(
@@ -41,6 +47,7 @@ class LocalExecutor(BaseExecutor):
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=True,
         )
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -128,6 +135,7 @@ class LocalExecutor(BaseExecutor):
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                start_new_session=True,
             )
 
         return await loop.run_in_executor(None, _start)
