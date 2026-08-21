@@ -76,11 +76,16 @@ class RemoteExecutor(BaseExecutor):
                 duration=duration,
                 command_echo=command,
             )
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, TimeoutError):
             duration = time.time() - start
             logger.error("[remote] timeout after %.2fs", duration)
-            if not SSH_PERSISTENT:
-                conn.close()
+            try:
+                await conn.run(
+                    "kill -- -$(ps -o pgid= -p $$) 2>/dev/null; kill -9 $$ 2>/dev/null",
+                    timeout=5,
+                )
+            except Exception:
+                logger.warning("[remote] failed to kill remote process tree", exc_info=True)
             return ExecResult(
                 stdout="",
                 stderr=f"Command timed out after {timeout}s",
