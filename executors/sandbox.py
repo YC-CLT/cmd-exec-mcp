@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -45,6 +46,11 @@ class SandboxExecutor(BaseExecutor):
                 stdin=subprocess.DEVNULL,
                 capture_output=True,
             )
+        else:
+            try:
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                pass
 
     def _run_with_timeout(self, docker_cmd, timeout, env=None):
         merged_env = os.environ.copy()
@@ -65,6 +71,7 @@ class SandboxExecutor(BaseExecutor):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=merged_env,
+            start_new_session=True,
         )
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -140,6 +147,7 @@ class SandboxExecutor(BaseExecutor):
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                start_new_session=True,
             )
 
         return await loop.run_in_executor(None, _start)
