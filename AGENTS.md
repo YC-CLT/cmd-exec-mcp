@@ -58,10 +58,13 @@
 | OpenSandbox 文档 | `docs/opensandbox/`（api/configuration/pysdk/server/调查报告） |
 | OpenSandbox 官方 | `open-sandbox.ai/sdks/code-interpreter/python` |
 
-## 工具/MCP
+## 工具
 
-- **wet-mcp**：`search`/`extract`/`media`/`help`/`config`，`extract` 参数名是 `urls`（数组），详见 `mcp_tools_summary.csv`
-- **cmd-exec-mcp Skill**：`skills/cmd-exec-mcp/SKILL.md`，Agent 调用指南（工具选择、参数速查、常见错误）
+- MCP详见 `mcp_tools_summary.csv`
+- 部分工具有相应的skill
+- `Read` 无法访问 `D:\Temp`，MCP 长输出需 `Copy-Item` 到项目根目录，正则替换 `\\n` 为 `\n`
+- **Edit `replace_all` 错误**：`replace_all=True` 无法使用。优先用 PowerShell `Select-String` + 正则做精确替换，或手动逐处 Edit
+- 浏览器操控用 `chrome-devtools-edge`（Edge CDP），**禁止用 `cua-driver` 操控浏览器**
 
 ## 工作流
 
@@ -106,3 +109,6 @@
 - **`_write_loop` 写入 pipe 前必须编码**：`proc.stdin.write()` 需要 `bytes`，字符串直接写入报 `TypeError`。用 `data.encode() if isinstance(data, str) else data` 统一处理。
 - **Windows pipe 关闭与进程退出有时间差**：`shell=True` 下 `readline()` 返回 EOF 时进程可能尚未"死透"，`poll()` 返回 `None`。修复：`poll()` 返回 `None` 时 `sleep(0.1)` 后重试。
 - **并发 I/O 代码必须加诊断日志**：`_read_loop` 无日志时无法判断是管道阻塞、线程池异常还是 gather 未完成。日志应覆盖：启动、每个 task 的 EOF/异常、gather 结果、exit_code。
+- **`os.killpg` 在 Windows 上不存在**：`monkeypatch.setattr(os, "killpg", ...)` 在 Windows 上直接 `AttributeError`，Linux 专属测试加 `@pytest.mark.skipif(sys.platform != "linux", ...)` 跳过
+- **`start_new_session=True` 跨平台自动忽略**：Windows 上 `Popen(start_new_session=True)` 不报错，无需 `if sys.platform` 判断
+- **`_kill_process_tree` 替代 `terminate()` 后 mock poll 可能返回 None**：`_cleanup` 中 `_kill_process_tree` 不碰 mock 对象，`poll()` 可能返回 None，需兜底 `exit_code = poll_result if poll_result is not None else -1`

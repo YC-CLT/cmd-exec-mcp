@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-08-21 — Linux 子进程树完整清理
+
+### 修复
+
+- **`_kill_process_tree` Linux 空实现**：Linux 分支新增 `os.killpg(os.getpgid(pid), signal.SIGKILL)` 杀整个进程组，`ProcessLookupError`/`OSError` 静默忽略
+- **所有 `Popen` 加 `start_new_session=True`**：`local.py`/`sandbox.py`/`opensandbox.py` 的 `_run_with_timeout` 和 `create_session` 中 `Popen` 均加 `start_new_session=True`，建立独立进程组
+- **`session.py` `_cleanup` 改用 `_kill_process_tree`**：新增模块级 `_kill_process_tree(pid)` 替代 `proc.terminate()`，`poll()` 返回 None 时兜底 `exit_code = -1`
+- **`remote.py` 超时杀远程进程树**：`TimeoutError` 后通过 SSH 发 `kill -- -$(ps -o pgid= -p $$)` 杀远程进程组
+
 ## 2026-08-16 — Skill 配套文档
 
 ### 新增
