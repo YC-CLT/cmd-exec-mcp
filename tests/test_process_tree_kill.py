@@ -8,6 +8,7 @@ from executors import sandbox as sandbox_module
 
 
 class TestKillProcessTreeLinux:
+    @pytest.mark.skipif(sys.platform != "linux", reason="os.killpg unavailable on Windows")
     def test_linux_calls_killpg(self, monkeypatch):
         monkeypatch.setattr(sys, "platform", "linux")
         killpg_calls = []
@@ -28,6 +29,7 @@ class TestKillProcessTreeLinux:
         assert getpgid_calls == [12345]
         assert killpg_calls == [(12345, signal.SIGKILL)]
 
+    @pytest.mark.skipif(sys.platform != "linux", reason="os.killpg unavailable on Windows")
     def test_linux_killpg_process_lookup_error_is_silent(self, monkeypatch):
         monkeypatch.setattr(sys, "platform", "linux")
 
@@ -39,6 +41,7 @@ class TestKillProcessTreeLinux:
 
         local_module.LocalExecutor._kill_process_tree(12345)
 
+    @pytest.mark.skipif(sys.platform != "linux", reason="os.killpg unavailable on Windows")
     def test_linux_killpg_os_error_is_silent(self, monkeypatch):
         monkeypatch.setattr(sys, "platform", "linux")
 
@@ -67,6 +70,7 @@ class TestKillProcessTreeWindows:
 
 
 class TestKillProcessTreeSandbox:
+    @pytest.mark.skipif(sys.platform != "linux", reason="os.killpg unavailable on Windows")
     def test_sandbox_linux_calls_killpg(self, monkeypatch):
         monkeypatch.setattr(sys, "platform", "linux")
         killpg_calls = []

@@ -15,6 +15,7 @@ class FakeProcForCleanup:
         return self.returncode
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="os.killpg unavailable on Windows")
 @pytest.mark.asyncio
 async def test_cleanup_calls_kill_process_tree_on_linux(monkeypatch):
     monkeypatch.setattr(sys, "platform", "linux")
@@ -38,6 +39,7 @@ async def test_cleanup_calls_kill_process_tree_on_linux(monkeypatch):
     assert ps.exit_code == -1
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="os.killpg unavailable on Windows")
 @pytest.mark.asyncio
 async def test_cleanup_handles_none_pid(monkeypatch):
     monkeypatch.setattr(sys, "platform", "linux")
@@ -60,6 +62,7 @@ async def test_cleanup_handles_none_pid(monkeypatch):
     assert killpg_calls == []
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="os.killpg unavailable on Windows")
 @pytest.mark.asyncio
 async def test_cleanup_process_lookup_error_silent(monkeypatch):
     monkeypatch.setattr(sys, "platform", "linux")
@@ -79,6 +82,7 @@ async def test_cleanup_process_lookup_error_silent(monkeypatch):
     ps._cleanup()
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="os.killpg unavailable on Windows")
 @pytest.mark.asyncio
 async def test_cleanup_already_exited_process(monkeypatch):
     monkeypatch.setattr(sys, "platform", "linux")

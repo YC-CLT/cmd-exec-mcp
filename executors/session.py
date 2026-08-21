@@ -222,7 +222,8 @@ class ProcessSession:
         logger.info("session %s: cleanup, exit_code=%s", self.session_id, self.exit_code)
         if self.exit_code is None:
             _kill_process_tree(self.proc.pid)
-            self.exit_code = self.proc.poll() if hasattr(self.proc, 'poll') else -1
+            poll_result = self.proc.poll() if hasattr(self.proc, 'poll') else None
+            self.exit_code = poll_result if poll_result is not None else -1
         for task in [self._reader_task, self._writer_task, self._watchdog_task]:
             if task and not task.done():
                 task.cancel()
