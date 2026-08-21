@@ -1,6 +1,10 @@
 import asyncio
 import atexit
 import logging
+import os
+import signal
+import subprocess
+import sys
 import uuid
 from config import SESSION_DEFAULT_ALIVE_TIMEOUT, SESSION_MAX_OUTPUT_LINES, SESSION_MAX_OUTPUT_BYTES
 
@@ -76,6 +80,22 @@ class SessionManager:
             if session:
                 session._cleanup()
         self._sessions.clear()
+
+
+def _kill_process_tree(pid):
+    if pid is None:
+        return
+    if sys.platform == "win32":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(pid)],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+        )
+    else:
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGKILL)
+        except (ProcessLookupError, OSError):
+            pass
 
 
 class ProcessSession:
@@ -201,10 +221,7 @@ class ProcessSession:
     def _cleanup(self):
         logger.info("session %s: cleanup, exit_code=%s", self.session_id, self.exit_code)
         if self.exit_code is None:
-            try:
-                self.proc.terminate()
-            except Exception:
-                pass
+            _kill_process_tree(self.proc.pid)
             self.exit_code = self.proc.poll() if hasattr(self.proc, 'poll') else -1
         for task in [self._reader_task, self._writer_task, self._watchdog_task]:
             if task and not task.done():
