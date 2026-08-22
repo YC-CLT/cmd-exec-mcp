@@ -21,6 +21,7 @@ from executors.sandbox import SandboxExecutor
 from executors.opensandbox import OpenSandboxExecutor
 from executors.remote import RemoteExecutor
 from executors.session import SessionManager
+from models import ExecResult
 from opensandbox.sandbox import Sandbox
 from fastmcp import FastMCP
 
@@ -310,6 +311,7 @@ async def _opensandbox_session_create(command, env, alive_timeout):
         _opensandbox_sessions[session_id] = session
 
     await _reset_watchdog(session_id)
+    _opensandbox_last_used = time.time()
     return {"session_id": session_id}
 
 
@@ -326,6 +328,7 @@ async def _opensandbox_session_dispatch(session_id, action, command, timeout):
         if last_result is None:
             return {"stdout": "", "stderr": "", "exit_code": None, "is_running": True}
         await _reset_watchdog(session_id)
+        _opensandbox_last_used = time.time()
         return {
             "stdout": last_result.stdout,
             "stderr": last_result.stderr,
@@ -351,6 +354,7 @@ async def _opensandbox_session_dispatch(session_id, action, command, timeout):
                 s["last_result"] = result
                 s["last_used"] = time.time()
         await _reset_watchdog(session_id)
+        _opensandbox_last_used = time.time()
         return result.to_dict()
 
     return {"success": False, "error": f"unknown action: {action}"}
@@ -572,6 +576,7 @@ async def execute_sandbox_file(
 
     _ensure_opensandbox_server()
 
+    sandbox = None
     if session_id:
         await _reset_watchdog(session_id)
         async with _opensandbox_sessions_lock:
@@ -591,6 +596,7 @@ async def execute_sandbox_file(
             return {"success": False, "error": f"failed to create sandbox: {e}"}
 
     try:
+        _opensandbox_last_used = time.time()
         if action == "read":
             data = await sandbox.files.read_file(path)
             return {"success": True, "data": data}
@@ -615,7 +621,7 @@ async def execute_sandbox_file(
     except Exception as e:
         return {"success": False, "error": str(e)}
     finally:
-        if not session_id:
+        if not session_id and sandbox is not None:
             try:
                 await sandbox.destroy()
             except Exception:
