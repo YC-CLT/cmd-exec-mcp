@@ -111,3 +111,8 @@
 - **`os.killpg` 在 Windows 上不存在**：`monkeypatch.setattr(os, "killpg", ...)` 在 Windows 上直接 `AttributeError`，Linux 专属测试加 `@pytest.mark.skipif(sys.platform != "linux", ...)` 跳过
 - **`start_new_session=True` 跨平台自动忽略**：Windows 上 `Popen(start_new_session=True)` 不报错，无需 `if sys.platform` 判断
 - **`_kill_process_tree` 替代 `terminate()` 后 mock poll 可能返回 None**：`_cleanup` 中 `_kill_process_tree` 不碰 mock 对象，`poll()` 可能返回 None，需兜底 `exit_code = poll_result if poll_result is not None else -1`
+- **OpenSandbox session 不走 SessionManager**：OpenSandbox 用 SDK 原生 session API（`create_session`/`run_in_session`/`delete_session`），在 `main.py` 内自管 `_opensandbox_sessions` 字典 + `asyncio.Lock`，Docker 后端零改动
+- **`execute_sandbox` 分流模式**：`session_id` 和 `detach` 分支按 `config.SANDBOX_BACKEND` 分流到 opensandbox 自管函数或 SessionManager，一次性执行逻辑不变
+- **`execute_sandbox_file` 临时 sandbox**：不传 `session_id` 时自动创建临时 sandbox，操作完 `finally` 中销毁；传 `session_id` 时复用已有 sandbox 并重置 watchdog
+- **watchdog 可重置**：`_reset_watchdog(session_id)` 取消旧 task 并创建新 `_watchdog_loop`，实现 send/read 时延长 session 生命周期
+- **atexit 双重清理**：`_atexit_cleanup_opensandbox` + `_opensandbox_shutdown` 确保进程退出时清理所有 session 和 server

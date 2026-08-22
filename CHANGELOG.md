@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-08-22 — OpenSandbox Session 与文件 API 完善
+
+### 新增
+
+- **`OpenSandboxExecutor.create_session` 重写**：从本地 `subprocess.Popen` 改为 OpenSandbox SDK 原生 `sandbox.commands.create_session()` API，返回 `(Sandbox, str)` 元组
+- **`OpenSandboxExecutor.run_in_session`**：新增方法，通过 `sandbox.commands.run_in_session()` 在已有 session 中执行命令，返回 `ExecResult`
+- **`OpenSandboxExecutor.delete_session`**：新增方法，通过 `sandbox.commands.delete_session()` + `sandbox.destroy()` 清理沙箱
+- **`_opensandbox_sessions` 自管字典**：`main.py` 新增 `_opensandbox_sessions` 字典 + `asyncio.Lock`，OpenSandbox 不走 `SessionManager`
+- **`_opensandbox_session_create` / `_dispatch` / `_cleanup`**：自管 session 生命周期（create/send/read/kill），返回格式与 `SessionManager` 一致
+- **`_watchdog_loop` / `_reset_watchdog`**：per-session watchdog，可重置超时，超时自动清理
+- **`_cleanup_all_opensandbox_sessions` + atexit**：进程退出时自动清理所有 OpenSandbox session
+- **`execute_sandbox` 分流**：`session_id` 和 `detach` 分支按 `SANDBOX_BACKEND` 分流到 opensandbox 自管或 SessionManager
+- **`execute_sandbox_file` MCP 工具**：新增 5 种文件操作
+  - `read`：读取沙箱内文件
+  - `write`：写入沙箱内文件
+  - `list`：列出目录内容
+  - `delete`：删除文件
+  - `exists`：检查文件是否存在
+  - 支持 `session_id` 复用已有 sandbox，无则创建临时 sandbox
+
+### 测试
+
+- 新增 30 个测试（5 + 14 + 11），覆盖 executor 新方法、session 管理、文件操作
+- 全量回归：100 passed, 8 skipped（Linux 专属跳过）
+
 ## 2026-08-21 — Linux 子进程树完整清理
 
 ### 修复
