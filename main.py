@@ -168,7 +168,7 @@ _opensandbox_sessions_lock = asyncio.Lock()
 
 def start_opensandbox_server():
     """启动 opensandbox-server 子进程，等待就绪后返回。"""
-    global _opensandbox_server_proc, _opensandbox_idle_task
+    global _opensandbox_server_proc, _opensandbox_idle_task, _opensandbox_last_used
     config_path = os.path.join(os.path.dirname(__file__), "docs", "opensandbox", ".sandbox.toml")
     proc = subprocess.Popen(
         ["opensandbox-server", "--config", config_path],

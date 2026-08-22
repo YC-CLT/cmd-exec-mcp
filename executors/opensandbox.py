@@ -29,8 +29,9 @@ class OpenSandboxExecutor(BaseExecutor):
         try:
             prefix = getattr(config, "SANDBOX_OPEN_PREFIX", "")
             execution = await sandbox.commands.run(f"{prefix}{command}")
-            stdout = "".join(msg.text for msg in execution.logs.stdout)
-            stderr = "".join(msg.text for msg in execution.logs.stderr)
+            logs = execution.logs
+            stdout = "".join(msg.text for msg in logs.stdout) if logs and logs.stdout else ""
+            stderr = "".join(msg.text for msg in logs.stderr) if logs and logs.stderr else ""
             return ExecResult(
                 command_echo=command,
                 stdout=stdout,
