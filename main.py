@@ -476,7 +476,11 @@ async def execute_sandbox(
     """
     global _opensandbox_server_started
 
+    timeout = resolve_timeout(timeout)
+
     if session_id:
+        if config.SANDBOX_BACKEND == "opensandbox":
+            return await _opensandbox_session_dispatch(session_id, action, command, timeout)
         if action == "read":
             return session_manager.read(session_id)
         elif action == "kill":
@@ -490,13 +494,13 @@ async def execute_sandbox(
     if detach:
         if alive_timeout is None:
             alive_timeout = config.SESSION_DEFAULT_ALIVE_TIMEOUT
+        if config.SANDBOX_BACKEND == "opensandbox":
+            return await _opensandbox_session_create(command, env, alive_timeout)
         if config.SANDBOX_BACKEND == "docker":
             validate_sandbox_command(command)
             return await session_manager.create(command, None, env, alive_timeout, sandbox)
         else:
             return await session_manager.create(command, None, env, alive_timeout, opensandbox)
-
-    timeout = resolve_timeout(timeout)
 
     if config.SANDBOX_BACKEND == "opensandbox":
         _ensure_opensandbox_server()
