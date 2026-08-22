@@ -175,7 +175,7 @@ class TestOpenSandboxSessionManagement:
         )
         sid = result["session_id"]
         await asyncio.sleep(0.5)
-        session_module._reset_watchdog(sid)
+        await session_module._reset_watchdog(sid)
         await asyncio.sleep(0.8)
         assert sid in session_module._opensandbox_sessions
         await asyncio.sleep(1.0)

@@ -252,16 +252,17 @@ async def _watchdog_loop(session_id, alive_timeout):
     await _opensandbox_session_cleanup(session_id)
 
 
-def _reset_watchdog(session_id):
-    session = _opensandbox_sessions.get(session_id)
-    if session is None:
-        return
-    old_task = session.get("watchdog_task")
-    if old_task and not old_task.done():
-        old_task.cancel()
-    session["watchdog_task"] = asyncio.ensure_future(
-        _watchdog_loop(session_id, session["alive_timeout"])
-    )
+async def _reset_watchdog(session_id):
+    async with _opensandbox_sessions_lock:
+        session = _opensandbox_sessions.get(session_id)
+        if session is None:
+            return
+        old_task = session.get("watchdog_task")
+        if old_task and not old_task.done():
+            old_task.cancel()
+        session["watchdog_task"] = asyncio.ensure_future(
+            _watchdog_loop(session_id, session["alive_timeout"])
+        )
 
 
 async def _opensandbox_session_cleanup(session_id):
@@ -274,7 +275,7 @@ async def _opensandbox_session_cleanup(session_id):
         task.cancel()
     try:
         await opensandbox.delete_session(session["sandbox"], session["os_session_id"])
-    except Exception:
+    except (Exception, asyncio.CancelledError):
         pass
 
 
@@ -286,9 +287,15 @@ async def _opensandbox_session_create(command, env, alive_timeout):
     session_id = str(uuid.uuid4())
     last_result = None
     if command:
-        last_result = await opensandbox.run_in_session(
-            sandbox, os_session_id, command
-        )
+        try:
+            last_result = await opensandbox.run_in_session(
+                sandbox, os_session_id, command
+            )
+        except Exception as e:
+            last_result = ExecResult(
+                command_echo=command, stdout="", stderr=str(e),
+                exit_code=-1, duration=0,
+            )
 
     session = {
         "sandbox": sandbox,
@@ -302,7 +309,7 @@ async def _opensandbox_session_create(command, env, alive_timeout):
     async with _opensandbox_sessions_lock:
         _opensandbox_sessions[session_id] = session
 
-    _reset_watchdog(session_id)
+    await _reset_watchdog(session_id)
     return {"session_id": session_id}
 
 
@@ -318,7 +325,7 @@ async def _opensandbox_session_dispatch(session_id, action, command, timeout):
         last_result = session["last_result"]
         if last_result is None:
             return {"stdout": "", "stderr": "", "exit_code": None, "is_running": True}
-        _reset_watchdog(session_id)
+        await _reset_watchdog(session_id)
         return {
             "stdout": last_result.stdout,
             "stderr": last_result.stderr,
@@ -343,7 +350,7 @@ async def _opensandbox_session_dispatch(session_id, action, command, timeout):
             if s is not None:
                 s["last_result"] = result
                 s["last_used"] = time.time()
-        _reset_watchdog(session_id)
+        await _reset_watchdog(session_id)
         return result.to_dict()
 
     return {"success": False, "error": f"unknown action: {action}"}
@@ -351,7 +358,6 @@ async def _opensandbox_session_dispatch(session_id, action, command, timeout):
 
 async def _cleanup_all_opensandbox_sessions():
     async with _opensandbox_sessions_lock:
-        sids = list(_opensandbox_sessions.keys())
         sessions = dict(_opensandbox_sessions)
         _opensandbox_sessions.clear()
     for sid, session in sessions.items():
@@ -360,7 +366,7 @@ async def _cleanup_all_opensandbox_sessions():
             task.cancel()
         try:
             await opensandbox.delete_session(session["sandbox"], session["os_session_id"])
-        except Exception:
+        except (Exception, asyncio.CancelledError):
             pass
 
 
@@ -567,7 +573,7 @@ async def execute_sandbox_file(
     _ensure_opensandbox_server()
 
     if session_id:
-        _reset_watchdog(session_id)
+        await _reset_watchdog(session_id)
         async with _opensandbox_sessions_lock:
             session = _opensandbox_sessions.get(session_id)
             if session is None:

@@ -70,10 +70,11 @@ class OpenSandboxExecutor(BaseExecutor):
             timeout=timedelta(seconds=timeout) if timeout and timeout > 0 else None,
         )
         duration_ms = execution.complete.execution_time_in_millis if execution.complete else 0
+        logs = execution.logs
         return ExecResult(
             command_echo=command,
-            stdout="".join(msg.text for msg in execution.logs.stdout),
-            stderr="".join(msg.text for msg in execution.logs.stderr),
+            stdout="".join(msg.text for msg in logs.stdout) if logs and logs.stdout else "",
+            stderr="".join(msg.text for msg in logs.stderr) if logs and logs.stderr else "",
             exit_code=execution.exit_code,
             duration=round(duration_ms / 1000, 3),
         )

@@ -31,7 +31,7 @@ def file_module(monkeypatch):
     monkeypatch.setattr("main._ensure_opensandbox_server", lambda: None)
     monkeypatch.setattr("main._opensandbox_sessions", {})
     monkeypatch.setattr("main._opensandbox_sessions_lock", MagicMock())
-    monkeypatch.setattr("main._reset_watchdog", lambda sid: None)
+    monkeypatch.setattr("main._reset_watchdog", AsyncMock())
     import main
     return main
 
