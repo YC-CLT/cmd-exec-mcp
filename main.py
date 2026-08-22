@@ -6,7 +6,9 @@ import platform
 import subprocess
 import sys
 import time
+import uuid
 import urllib.request
+from datetime import timedelta
 import config
 from config import (
     RESULT_FIELDS,
@@ -158,6 +160,8 @@ _opensandbox_server_started = False
 _opensandbox_server_proc = None
 _opensandbox_last_used = 0.0
 _opensandbox_idle_task = None
+_opensandbox_sessions = {}
+_opensandbox_sessions_lock = asyncio.Lock()
 
 
 def start_opensandbox_server():
@@ -237,6 +241,136 @@ async def _idle_watchdog_loop():
                 break
     except asyncio.CancelledError:
         pass
+
+
+async def _watchdog_loop(session_id, alive_timeout):
+    try:
+        await asyncio.sleep(alive_timeout)
+    except asyncio.CancelledError:
+        return
+    await _opensandbox_session_cleanup(session_id)
+
+
+def _reset_watchdog(session_id):
+    session = _opensandbox_sessions.get(session_id)
+    if session is None:
+        return
+    old_task = session.get("watchdog_task")
+    if old_task and not old_task.done():
+        old_task.cancel()
+    session["watchdog_task"] = asyncio.ensure_future(
+        _watchdog_loop(session_id, session["alive_timeout"])
+    )
+
+
+async def _opensandbox_session_cleanup(session_id):
+    async with _opensandbox_sessions_lock:
+        session = _opensandbox_sessions.pop(session_id, None)
+    if session is None:
+        return
+    task = session.get("watchdog_task")
+    if task and not task.done():
+        task.cancel()
+    try:
+        await opensandbox.delete_session(session["sandbox"], session["os_session_id"])
+    except Exception:
+        pass
+
+
+async def _opensandbox_session_create(command, env, alive_timeout):
+    _ensure_opensandbox_server()
+    sandbox, os_session_id = await opensandbox.create_session(
+        command, cwd=None, env=env, alive_timeout=alive_timeout
+    )
+    session_id = str(uuid.uuid4())
+    last_result = None
+    if command:
+        last_result = await opensandbox.run_in_session(
+            sandbox, os_session_id, command
+        )
+
+    session = {
+        "sandbox": sandbox,
+        "os_session_id": os_session_id,
+        "last_result": last_result,
+        "cwd": None,
+        "alive_timeout": alive_timeout,
+        "last_used": time.time(),
+        "watchdog_task": None,
+    }
+    async with _opensandbox_sessions_lock:
+        _opensandbox_sessions[session_id] = session
+
+    _reset_watchdog(session_id)
+    return {"session_id": session_id}
+
+
+async def _opensandbox_session_dispatch(session_id, action, command, timeout):
+    async with _opensandbox_sessions_lock:
+        session = _opensandbox_sessions.get(session_id)
+        if session is None:
+            return {"success": False, "error": f"session {session_id} not found or expired"}
+        sandbox = session["sandbox"]
+        os_session_id = session["os_session_id"]
+
+    if action == "read":
+        last_result = session["last_result"]
+        if last_result is None:
+            return {"stdout": "", "stderr": "", "exit_code": None, "is_running": True}
+        _reset_watchdog(session_id)
+        return {
+            "stdout": last_result.stdout,
+            "stderr": last_result.stderr,
+            "exit_code": last_result.exit_code,
+            "is_running": False,
+        }
+
+    if action == "kill":
+        await _opensandbox_session_cleanup(session_id)
+        return {"killed": True, "session_id": session_id}
+
+    if action == "send":
+        try:
+            result = await opensandbox.run_in_session(
+                sandbox, os_session_id, command, timeout=timeout
+            )
+        except Exception as e:
+            await _opensandbox_session_cleanup(session_id)
+            return {"success": False, "error": f"sandbox error: {e}"}
+        async with _opensandbox_sessions_lock:
+            s = _opensandbox_sessions.get(session_id)
+            if s is not None:
+                s["last_result"] = result
+                s["last_used"] = time.time()
+        _reset_watchdog(session_id)
+        return result.to_dict()
+
+    return {"success": False, "error": f"unknown action: {action}"}
+
+
+async def _cleanup_all_opensandbox_sessions():
+    async with _opensandbox_sessions_lock:
+        sids = list(_opensandbox_sessions.keys())
+        sessions = dict(_opensandbox_sessions)
+        _opensandbox_sessions.clear()
+    for sid, session in sessions.items():
+        task = session.get("watchdog_task")
+        if task and not task.done():
+            task.cancel()
+        try:
+            await opensandbox.delete_session(session["sandbox"], session["os_session_id"])
+        except Exception:
+            pass
+
+
+def _atexit_cleanup_opensandbox():
+    try:
+        asyncio.run(_cleanup_all_opensandbox_sessions())
+    except RuntimeError:
+        pass
+
+
+atexit.register(_atexit_cleanup_opensandbox)
 
 
 @mcp.tool()
