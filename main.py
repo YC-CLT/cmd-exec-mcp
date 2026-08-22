@@ -281,6 +281,7 @@ async def _opensandbox_session_cleanup(session_id):
 
 
 async def _opensandbox_session_create(command, env, alive_timeout):
+    global _opensandbox_last_used
     _ensure_opensandbox_server()
     sandbox, os_session_id = await opensandbox.create_session(
         command, cwd=None, env=env, alive_timeout=alive_timeout
@@ -316,6 +317,7 @@ async def _opensandbox_session_create(command, env, alive_timeout):
 
 
 async def _opensandbox_session_dispatch(session_id, action, command, timeout):
+    global _opensandbox_last_used
     async with _opensandbox_sessions_lock:
         session = _opensandbox_sessions.get(session_id)
         if session is None:
@@ -485,7 +487,7 @@ async def execute_sandbox(
         execute_sandbox(session_id="xxx", action="read")
         execute_sandbox(session_id="xxx", action="kill")
     """
-    global _opensandbox_server_started
+    global _opensandbox_server_started, _opensandbox_last_used
 
     timeout = resolve_timeout(timeout)
 
@@ -568,6 +570,7 @@ async def execute_sandbox_file(
         execute_sandbox_file("list", "/home/user")
         execute_sandbox_file("exists", "/home/user/output.txt", session_id="xxx")
     """
+    global _opensandbox_last_used
     if config.SANDBOX_BACKEND != "opensandbox":
         return {"success": False, "error": "execute_sandbox_file 仅支持 opensandbox 后端"}
 
