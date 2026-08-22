@@ -21,6 +21,7 @@ from executors.sandbox import SandboxExecutor
 from executors.opensandbox import OpenSandboxExecutor
 from executors.remote import RemoteExecutor
 from executors.session import SessionManager
+from opensandbox.sandbox import Sandbox
 from fastmcp import FastMCP
 
 
@@ -533,6 +534,86 @@ async def execute_sandbox(
     finally:
         if config.SANDBOX_BACKEND == "opensandbox":
             _opensandbox_last_used = time.time()
+
+
+@mcp.tool()
+async def execute_sandbox_file(
+    action: str,
+    path: str,
+    session_id: str = None,
+    content: str = "",
+) -> dict:
+    """OpenSandbox 沙箱文件操作（仅 opensandbox 后端）。
+
+    action: "read" | "write" | "list" | "delete" | "exists"
+    path: 沙箱内绝对路径，如 /home/user/result.txt
+    session_id: 复用已有 session 的 sandbox（可选，无则创建临时 sandbox）
+    content: action="write" 时写入的内容
+
+    返回: {success: True, data: ...} 或 {success: False, error: "..."}
+
+    示例:
+        execute_sandbox_file("read", "/home/user/output.txt")
+        execute_sandbox_file("write", "/home/user/script.py", content="print(1)")
+        execute_sandbox_file("list", "/home/user")
+        execute_sandbox_file("exists", "/home/user/output.txt", session_id="xxx")
+    """
+    if config.SANDBOX_BACKEND != "opensandbox":
+        return {"success": False, "error": "execute_sandbox_file 仅支持 opensandbox 后端"}
+
+    if not path.startswith("/"):
+        return {"success": False, "error": "path must be absolute"}
+
+    _ensure_opensandbox_server()
+
+    if session_id:
+        _reset_watchdog(session_id)
+        async with _opensandbox_sessions_lock:
+            session = _opensandbox_sessions.get(session_id)
+            if session is None:
+                return {"success": False, "error": f"session {session_id} not found or expired"}
+            sandbox = session["sandbox"]
+    else:
+        try:
+            sandbox = await Sandbox.create(
+                config.SANDBOX_OPEN_TEMPLATE,
+                connection_config=opensandbox.conn,
+                timeout=timedelta(seconds=30),
+                entrypoint=getattr(config, "SANDBOX_OPEN_ENTRYPOINT", None),
+            )
+        except Exception as e:
+            return {"success": False, "error": f"failed to create sandbox: {e}"}
+
+    try:
+        if action == "read":
+            data = await sandbox.files.read_file(path)
+            return {"success": True, "data": data}
+        elif action == "write":
+            await sandbox.files.write_file(path, content)
+            return {"success": True, "data": None}
+        elif action == "list":
+            from opensandbox.models import DirectoryListEntry
+            entries = await sandbox.files.list_directory(DirectoryListEntry(path=path))
+            return {"success": True, "data": [e.model_dump() for e in entries]}
+        elif action == "delete":
+            await sandbox.files.delete_files([path])
+            return {"success": True, "data": None}
+        elif action == "exists":
+            try:
+                await sandbox.files.get_file_info([path])
+                return {"success": True, "data": True}
+            except Exception:
+                return {"success": True, "data": False}
+        else:
+            return {"success": False, "error": f"unknown action: {action}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        if not session_id:
+            try:
+                await sandbox.destroy()
+            except Exception:
+                pass
 
 
 @mcp.tool()
