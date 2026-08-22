@@ -44,6 +44,7 @@
 
 ## 规则
 
+
 - **monkeypatch 必须用 `import config` + `config.X`**：`from config import X` 创建本地副本，monkeypatch 无法穿透；executor 同理 patch `executors.模块名.X`
 - **executor 签名变更需全链同步**：方法签名变，main.py 工具、测试、同接口其他 executor 都改
 - **config 重命名全量 grep**：常量改名/移除后搜索所有引用
@@ -65,7 +66,7 @@
 - `Read` 无法访问 `D:\Temp`，MCP 长输出需 `Copy-Item` 到项目根目录，正则替换 `\\n` 为 `\n`
 - **Edit `replace_all` 错误**：`replace_all=True` 无法使用。优先用 PowerShell `Select-String` + 正则做精确替换，或手动逐处 Edit
 - 浏览器操控用 `chrome-devtools-edge`（Edge CDP），**禁止用 `cua-driver` 操控浏览器**
-
+- **WebFetch 无法使用**：用 `wet-mcp extract`
 ## 工作流
 
 0. 读AGENTS.md
@@ -82,8 +83,6 @@
 
 ## 经验/坑点
 
-- **WebFetch 无法使用**：用 `wet-mcp extract`
-- **Temp 目录不可读，MCP 输出无结构化**：Read 工具无法访问 `D:\Temp`，长输出需 Copy-Item 到项目根目录后用正则替换 `\\n` 为 `\n`
 - **uv sync 会清 dev 依赖**：`uv sync` 只同步 `[project.dependencies]`，依赖变更后使用 `uv pip install -e ".[dev]"` 保留 dev 依赖
 - **Windows shell 单引号陷阱**：cmd.exe 不认单引号，跨平台测试命令一律用双引号
 - **subprocess 三大坑**：① `env=` 替换整个环境，先 `os.environ.copy()` 再 `.update()`；② `shell=True` + `cmd /c` 双层引号转义断裂；③ `timeout=` 只杀父进程，用 `Popen` + `taskkill /F /T /PID`
