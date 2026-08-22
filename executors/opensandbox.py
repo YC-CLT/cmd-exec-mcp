@@ -1,5 +1,4 @@
 import asyncio
-import subprocess
 import time
 from datetime import timedelta
 from opensandbox.config import ConnectionConfig
@@ -47,18 +46,38 @@ class OpenSandboxExecutor(BaseExecutor):
         return await asyncio.gather(*tasks)
 
     async def create_session(self, command, cwd=None, env=None, alive_timeout=None):
-        loop = asyncio.get_running_loop()
-
-        def _start():
-            return subprocess.Popen(
-                command,
-                shell=True,
-                cwd=cwd,
-                env=env,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                start_new_session=True,
+        runtime_env = getattr(config, "SANDBOX_OPEN_RUNTIME_ENV", {})
+        merged_env = {**runtime_env, **(env or {})}
+        sandbox = await Sandbox.create(
+            config.SANDBOX_OPEN_TEMPLATE,
+            connection_config=self.conn,
+            timeout=None,
+            entrypoint=getattr(config, "SANDBOX_OPEN_ENTRYPOINT", None),
+            env=merged_env,
+        )
+        try:
+            session_id = await sandbox.commands.create_session(
+                working_directory=cwd
             )
+        except Exception:
+            await sandbox.destroy()
+            raise
+        return sandbox, session_id
 
-        return await loop.run_in_executor(None, _start)
+    async def run_in_session(self, sandbox, session_id, command, timeout=None):
+        execution = await sandbox.commands.run_in_session(
+            session_id, command,
+            timeout=timedelta(seconds=timeout) if timeout and timeout > 0 else None,
+        )
+        duration_ms = execution.complete.execution_time_in_millis if execution.complete else 0
+        return ExecResult(
+            command_echo=command,
+            stdout="".join(msg.text for msg in execution.logs.stdout),
+            stderr="".join(msg.text for msg in execution.logs.stderr),
+            exit_code=execution.exit_code,
+            duration=round(duration_ms / 1000, 3),
+        )
+
+    async def delete_session(self, sandbox, session_id):
+        await sandbox.commands.delete_session(session_id)
+        await sandbox.destroy()
