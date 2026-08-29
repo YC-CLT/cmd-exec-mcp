@@ -13,6 +13,14 @@ class MockFileSandbox:
 
 
 @pytest.fixture
+def mock_opensandbox_executor():
+    mock_exec = AsyncMock()
+    mock_exec.upload_file = AsyncMock()
+    mock_exec.download_file = AsyncMock()
+    return mock_exec
+
+
+@pytest.fixture
 def mock_sandbox_create():
     sandbox = MockFileSandbox()
     with patch("main.Sandbox") as mock:
@@ -21,11 +29,12 @@ def mock_sandbox_create():
 
 
 @pytest.fixture
-def file_module(monkeypatch):
+def file_module(monkeypatch, mock_opensandbox_executor):
     monkeypatch.setattr("main._ensure_opensandbox_server", lambda: None)
     monkeypatch.setattr("main._opensandbox_sessions", {})
     monkeypatch.setattr("main._opensandbox_sessions_lock", MagicMock())
     monkeypatch.setattr("main._reset_watchdog", AsyncMock())
+    monkeypatch.setattr("main.opensandbox", mock_opensandbox_executor)
     import main
     return main
 
@@ -46,33 +55,31 @@ class TestExecuteSandboxFile:
         assert "absolute" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_download_file_with_temp_sandbox(self, file_module, monkeypatch, mock_sandbox_create):
+    async def test_download_file_with_temp_sandbox(self, file_module, monkeypatch, mock_sandbox_create, mock_opensandbox_executor):
         monkeypatch.setattr(config, "SANDBOX_BACKEND", "opensandbox")
         monkeypatch.setattr(config, "SANDBOX_OPEN_ENTRYPOINT", None)
         monkeypatch.setattr(config, "SANDBOX_OPEN_TEMPLATE", "template")
         mock_conn = MagicMock()
         monkeypatch.setattr(file_module.opensandbox, "conn", mock_conn)
-        with patch("builtins.open", mock_open()) as mock_file:
-            result = await file_module.execute_sandbox_file("download", "/tmp/test.txt", local_path="D:/out.txt")
+        result = await file_module.execute_sandbox_file("download", "/tmp/test.txt", local_path="D:/out.txt")
         assert result["success"] == True
-        mock_sandbox_create.files.read_file.assert_awaited_once_with("/tmp/test.txt")
+        mock_opensandbox_executor.download_file.assert_awaited_once_with(mock_sandbox_create, "/tmp/test.txt", "D:/out.txt")
         mock_sandbox_create.destroy.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_upload_file_with_temp_sandbox(self, file_module, monkeypatch, mock_sandbox_create):
+    async def test_upload_file_with_temp_sandbox(self, file_module, monkeypatch, mock_sandbox_create, mock_opensandbox_executor):
         monkeypatch.setattr(config, "SANDBOX_BACKEND", "opensandbox")
         monkeypatch.setattr(config, "SANDBOX_OPEN_ENTRYPOINT", None)
         monkeypatch.setattr(config, "SANDBOX_OPEN_TEMPLATE", "template")
         mock_conn = MagicMock()
         monkeypatch.setattr(file_module.opensandbox, "conn", mock_conn)
-        with patch("builtins.open", mock_open(read_data="print(1)")):
-            result = await file_module.execute_sandbox_file("upload", "/tmp/script.py", local_path="D:/script.py")
+        result = await file_module.execute_sandbox_file("upload", "/tmp/script.py", local_path="D:/script.py")
         assert result["success"] == True
-        mock_sandbox_create.files.write_file.assert_awaited_once_with("/tmp/script.py", "print(1)")
+        mock_opensandbox_executor.upload_file.assert_awaited_once_with(mock_sandbox_create, "D:/script.py", "/tmp/script.py")
         mock_sandbox_create.destroy.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_file_operation_with_session_id(self, file_module, monkeypatch):
+    async def test_file_operation_with_session_id(self, file_module, monkeypatch, mock_opensandbox_executor):
         monkeypatch.setattr(config, "SANDBOX_BACKEND", "opensandbox")
         sandbox = MockFileSandbox()
         file_module._opensandbox_sessions = {
@@ -85,12 +92,11 @@ class TestExecuteSandboxFile:
                 "watchdog_task": None,
             }
         }
-        with patch("builtins.open", mock_open(read_data="content")):
-            result = await file_module.execute_sandbox_file(
-                "upload", "/tmp/test.txt", session_id="test-sid", local_path="D:/test.txt"
-            )
+        result = await file_module.execute_sandbox_file(
+            "upload", "/tmp/test.txt", session_id="test-sid", local_path="D:/test.txt"
+        )
         assert result["success"] == True
-        sandbox.files.write_file.assert_awaited_once_with("/tmp/test.txt", "content")
+        mock_opensandbox_executor.upload_file.assert_awaited_once_with(sandbox, "D:/test.txt", "/tmp/test.txt")
 
     @pytest.mark.asyncio
     async def test_session_not_found(self, file_module, monkeypatch):

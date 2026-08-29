@@ -53,7 +53,7 @@ class TestParseTarget:
         from executors.remote import RemoteExecutor
         host, user, port = RemoteExecutor._parse_target("rpig:8022")
         assert host == "rpig"
-        assert user == "root"
+        assert user == "admin"
         assert port == 8022
 
     def test_user_at_host(self):
@@ -273,3 +273,62 @@ class TestRemoteExecutorExecuteBatch:
         assert len(results) == 2
         assert results[0].command_echo == "echo one"
         assert results[1].command_echo == "echo two"
+
+
+class TestKeyAuth:
+    def test_is_key_path_absolute(self):
+        from executors.remote import RemoteExecutor
+        assert RemoteExecutor._is_key_path("/home/user/.ssh/id_rsa") is True
+        assert RemoteExecutor._is_key_path("~/.ssh/id_rsa") is True
+
+    def test_is_key_path_with_slash(self):
+        from executors.remote import RemoteExecutor
+        assert RemoteExecutor._is_key_path("keys/id_rsa") is True
+
+    def test_is_key_path_with_backslash(self):
+        from executors.remote import RemoteExecutor
+        assert RemoteExecutor._is_key_path("keys\\id_rsa") is True
+
+    def test_is_key_path_not_key(self):
+        from executors.remote import RemoteExecutor
+        assert RemoteExecutor._is_key_path("mypassword") is False
+        assert RemoteExecutor._is_key_path("123456") is False
+
+    @pytest.mark.asyncio
+    async def test_execute_with_key_path(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
+        mock_asyncssh.connect.return_value = MockSSHConnection(stdout="ok")
+
+        from executors.remote import RemoteExecutor
+        executor = RemoteExecutor()
+        result = await executor.execute("ls", target="rpig", key="/home/user/.ssh/id_rsa")
+
+        assert result.exit_code == 0
+        call_kwargs = mock_asyncssh.connect.call_args[1]
+        assert call_kwargs["client_keys"] == [os.path.expanduser("/home/user/.ssh/id_rsa")]
+
+    @pytest.mark.asyncio
+    async def test_execute_with_password(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
+        mock_asyncssh.connect.return_value = MockSSHConnection(stdout="ok")
+
+        from executors.remote import RemoteExecutor
+        executor = RemoteExecutor()
+        result = await executor.execute("ls", target="rpig", key="mypassword")
+
+        assert result.exit_code == 0
+        call_kwargs = mock_asyncssh.connect.call_args[1]
+        assert call_kwargs["password"] == "mypassword"
+
+    @pytest.mark.asyncio
+    async def test_execute_with_no_known_hosts(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
+        mock_asyncssh.connect.return_value = MockSSHConnection(stdout="ok")
+
+        from executors.remote import RemoteExecutor
+        executor = RemoteExecutor()
+        result = await executor.execute("ls", target="rpig", no_known_hosts=True)
+
+        assert result.exit_code == 0
+        call_kwargs = mock_asyncssh.connect.call_args[1]
+        assert call_kwargs["known_hosts"] is None
