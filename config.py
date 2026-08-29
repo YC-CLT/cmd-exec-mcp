@@ -93,9 +93,11 @@ SANDBOX_OPEN_SERVER_IDLE_TIMEOUT = 600     # 无请求空闲多久后自动关�
 SANDBOX_OPEN_PREFIX = ""
 
 # SSH 远程执行配置
-SSH_DEFAULT_TARGET = "rpig"    # 默认 SSH 目标，格式: [user@]host[:port]
-SSH_DEFAULT_USER = "root"      # 默认 SSH 用户名
+SSH_DEFAULT_TARGET = "admin@192.168.2.1:22"    # 默认 SSH 目标，格式: [user@]host[:port]
+SSH_DEFAULT_USER = "admin"      # 默认 SSH 用户名
 SSH_DEFAULT_PORT = 22          # 默认 SSH 端口
+SSH_DEFAULT_KEY = None         # 默认 SSH 密钥路径或密码字符串
+SSH_DEFAULT_NO_KNOWN_HOSTS = False  # 默认是否跳过 known_hosts 校验
 SSH_PERSISTENT = True          # 长连接复用
 SSH_CONNECTION_TIMEOUT = 10    # SSH 连接超时秒数
 
