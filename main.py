@@ -397,46 +397,20 @@ async def execute_local(
     shell: str = None,
     output_file: str = "",
     detach: bool = False,
-    session_id: str = None,
-    action: str = "send",
     alive_timeout: int = None,
 ) -> dict | list[dict]:
-    """在本地执行 Shell 命令，支持黑白名单校验、并行执行、会话管理。
+    """Shell 命令执行（本地），支持黑白名单校验、并行、会话。
 
-    command: 命令字符串，并行使 && 分隔 + parallel=True
     cwd: 工作目录（必填）
-    timeout: 超时秒数，-1 无限，默认 30
-    env: 环境变量 dict，如 {"NODE_ENV": "production"}
-    parallel: True 时按 && 拆分并行执行
-    fields: 返回字段过滤，如 {"stdout": True, "exit_code": True}
-    shell: 指定解释器 "cmd"|"pwsh"|"bash"|"wsl"，默认自动检测
-    output_file: 输出过长时指定绝对路径落盘，返回截断预览
-    detach: True 后台运行，返回 session_id 供后续 read/send/kill
-    session_id: 已有会话 ID，与 action 配合
-    action: "read" 读输出 | "send" 发 stdin | "kill" 终止
-    alive_timeout: 会话保活超时秒数，默认 300
+    timeout: 超时秒数，-1=无限，默认 30
+    detach: True 后台运行，返回 session_id（后续用 execute_session 操作）
+    parallel: True + && 分隔 → 并行
+    shell: 指定 "cmd"|"pwsh"|"bash"|"wsl"，默认自动检测
+    output_file: 输出过长时落盘路径
 
-    返回: {stdout, stderr, exit_code, duration, is_timeout, command_echo, output_file}
-
-    示例:
-        execute_local("git status", cwd="D:/project")
-        execute_local("npm install", cwd="D:/project", timeout=120)
-        execute_local("go build && go test", cwd="D:/project", parallel=True)
-        execute_local("python -c 'print(input())'", cwd="D:/project", detach=True)
-        execute_local(session_id="xxx", action="read")
-        execute_local(session_id="xxx", action="kill")
+    execute_local("git status", cwd="D:/project")
+    execute_local("npm install", cwd="D:/project", timeout=120)
     """
-    if session_id:
-        if action == "read":
-            return session_manager.read(session_id)
-        elif action == "kill":
-            return session_manager.kill(session_id)
-        elif action == "send":
-            session_manager.send(session_id, command)
-            return {"sent": True, "session_id": session_id}
-        else:
-            raise ValueError(f"Unknown action: {action}")
-
     if not cwd:
         raise ValueError("cwd is required for command execution")
 
@@ -472,37 +446,19 @@ async def execute_sandbox(
     fields: dict = None,
     output_file: str = "",
     detach: bool = False,
-    session_id: str = None,
-    action: str = "send",
     alive_timeout: int = None,
 ) -> dict | list[dict]:
-    """在隔离容器中执行命令（Docker/OpenSandbox），独立黑白名单。
+    """容器内命令执行（Docker/OpenSandbox），独立黑白名单。
 
-    无 cwd/shell 参数。其余参数和返回格式同上 execute_local。
+    无 cwd/shell。其余参数和返回格式同 execute_local。
+    Session 管理用 execute_session。
 
-    示例:
-        execute_sandbox("pip install numpy && python -c 'import numpy; print(numpy.__version__)'", timeout=120)
-        execute_sandbox("node -e 'console.log(process.env)'", env={"DEBUG": "1"})
-        execute_sandbox("python -c 'print(input())'", detach=True)
-        execute_sandbox(session_id="xxx", action="read")
-        execute_sandbox(session_id="xxx", action="kill")
+    execute_sandbox("pip install numpy", timeout=120)
+    execute_sandbox("python -c 'print(input())'", detach=True)
     """
     global _opensandbox_server_started, _opensandbox_last_used
 
     timeout = resolve_timeout(timeout)
-
-    if session_id:
-        if config.SANDBOX_BACKEND == "opensandbox":
-            return await _opensandbox_session_dispatch(session_id, action, command, timeout)
-        if action == "read":
-            return session_manager.read(session_id)
-        elif action == "kill":
-            return session_manager.kill(session_id)
-        elif action == "send":
-            session_manager.send(session_id, command)
-            return {"sent": True, "session_id": session_id}
-        else:
-            raise ValueError(f"Unknown action: {action}")
 
     if detach:
         if alive_timeout is None:
@@ -553,29 +509,30 @@ async def execute_sandbox_file(
     action: str,
     path: str,
     session_id: str = None,
-    content: str = "",
+    local_path: str = "",
 ) -> dict:
-    """OpenSandbox 沙箱文件操作（仅 opensandbox 后端）。
+    """OpenSandbox 文件上传/下载。
 
-    action: "read" | "write" | "list" | "delete" | "exists"
-    path: 沙箱内绝对路径，如 /home/user/result.txt
-    session_id: 复用已有 session 的 sandbox（可选，无则创建临时 sandbox）
-    content: action="write" 时写入的内容
+    action: "upload" | "download"
+    path: 沙箱内绝对路径
+    local_path: 本地绝对路径
+    session_id: 复用已有 session（可选）
 
-    返回: {success: True, data: ...} 或 {success: False, error: "..."}
-
-    示例:
-        execute_sandbox_file("read", "/home/user/output.txt")
-        execute_sandbox_file("write", "/home/user/script.py", content="print(1)")
-        execute_sandbox_file("list", "/home/user")
-        execute_sandbox_file("exists", "/home/user/output.txt", session_id="xxx")
+    execute_sandbox_file("upload", "/home/user/script.py", local_path="D:/script.py")
+    execute_sandbox_file("download", "/home/user/out.txt", local_path="D:/out.txt")
     """
     global _opensandbox_last_used
     if config.SANDBOX_BACKEND != "opensandbox":
         return {"success": False, "error": "execute_sandbox_file 仅支持 opensandbox 后端"}
 
+    if action not in ("upload", "download"):
+        return {"success": False, "error": f"unknown action: {action}, use 'upload' or 'download'"}
+
     if not path.startswith("/"):
         return {"success": False, "error": "path must be absolute"}
+
+    if not local_path:
+        return {"success": False, "error": "local_path is required"}
 
     _ensure_opensandbox_server()
 
@@ -600,27 +557,16 @@ async def execute_sandbox_file(
 
     try:
         _opensandbox_last_used = time.time()
-        if action == "read":
-            data = await sandbox.files.read_file(path)
-            return {"success": True, "data": data}
-        elif action == "write":
+        if action == "upload":
+            with open(local_path, "r") as f:
+                content = f.read()
             await sandbox.files.write_file(path, content)
             return {"success": True, "data": None}
-        elif action == "list":
-            from opensandbox.models import DirectoryListEntry
-            entries = await sandbox.files.list_directory(DirectoryListEntry(path=path))
-            return {"success": True, "data": [e.model_dump() for e in entries]}
-        elif action == "delete":
-            await sandbox.files.delete_files([path])
+        elif action == "download":
+            content = await sandbox.files.read_file(path)
+            with open(local_path, "w") as f:
+                f.write(content)
             return {"success": True, "data": None}
-        elif action == "exists":
-            try:
-                await sandbox.files.get_file_info([path])
-                return {"success": True, "data": True}
-            except Exception:
-                return {"success": True, "data": False}
-        else:
-            return {"success": False, "error": f"unknown action: {action}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
     finally:
@@ -640,40 +586,27 @@ async def execute_remote(
     fields: dict = None,
     output_file: str = "",
     detach: bool = False,
-    session_id: str = None,
-    action: str = "send",
+    target: str = None,
+    cwd: str = "",
     alive_timeout: int = None,
 ) -> dict | list[dict]:
-    """在远程服务器执行命令（SSH），黑白名单同 execute_local。
+    """SSH 远程命令执行。
 
-    无 cwd/shell 参数。其余参数和返回格式同上 execute_local。
+    target: [user@]host[:port]，默认 SSH_DEFAULT_TARGET
+    cwd: 远程工作目录
+    其余参数和返回格式同 execute_local。
 
-    示例:
-        execute_remote("docker ps --format '{{.Names}}'", timeout=10)
-        execute_remote("systemctl status nginx")
-        execute_remote("df -h && free -m", parallel=True)
-        execute_remote("python -c 'print(input())'", detach=True)
-        execute_remote(session_id="xxx", action="read")
-        execute_remote(session_id="xxx", action="kill")
+    execute_remote("docker ps", timeout=10)
+    execute_remote("ls -la", target="pi@rpig:8022")
+    execute_remote("cat file.txt", cwd="/home/user")
     """
     global _remote_executor
-
-    if session_id:
-        if action == "read":
-            return session_manager.read(session_id)
-        elif action == "kill":
-            return session_manager.kill(session_id)
-        elif action == "send":
-            session_manager.send(session_id, command)
-            return {"sent": True, "session_id": session_id}
-        else:
-            raise ValueError(f"Unknown action: {action}")
 
     if detach:
         if alive_timeout is None:
             alive_timeout = config.SESSION_DEFAULT_ALIVE_TIMEOUT
         validate_command(command)
-        return await session_manager.create(command, None, env, alive_timeout, _remote_executor)
+        return await session_manager.create(command, cwd, env, alive_timeout, _remote_executor)
 
     timeout = resolve_timeout(timeout)
 
@@ -681,12 +614,121 @@ async def execute_remote(
         commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
         for cmd in commands:
             validate_command(cmd)
-        results = await _remote_executor.execute_batch(commands, timeout=timeout, env=env)
+        results = await _remote_executor.execute_batch(commands, target=target, timeout=timeout, env=env)
         return [r.to_dict(fields) for r in results]
 
     validate_command(command)
-    result = await _remote_executor.execute(command, timeout=timeout, env=env)
+    result = await _remote_executor.execute(command, target=target, timeout=timeout, env=env, cwd=cwd)
     return _handle_output_file(result, output_file).to_dict(fields)
+
+
+@mcp.tool()
+async def execute_remote_file(
+    action: str,
+    path: str,
+    local_path: str = "",
+    target: str = None,
+) -> dict:
+    """SSH 远程文件上传/下载（SFTP）。
+
+    action: "upload" | "download"
+    path: 远程绝对路径
+    local_path: 本地绝对路径
+    target: [user@]host[:port]，默认 SSH_DEFAULT_TARGET
+
+    execute_remote_file("upload", "/tmp/out.txt", local_path="D:/out.txt")
+    execute_remote_file("download", "/var/log/syslog", local_path="D:/logs/syslog")
+    """
+    global _remote_executor
+
+    if action not in ("upload", "download"):
+        return {"success": False, "error": f"unknown action: {action}, use 'upload' or 'download'"}
+
+    if not path.startswith("/"):
+        return {"success": False, "error": "path must be absolute"}
+
+    if not local_path:
+        return {"success": False, "error": "local_path is required"}
+
+    try:
+        if action == "upload":
+            await _remote_executor.upload_file(local_path, path, target=target)
+        else:
+            await _remote_executor.download_file(path, local_path, target=target)
+        return {"success": True, "data": None}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+async def execute_session(
+    action: str,
+    session_id: str = None,
+    command: str = "",
+    timeout: int = None,
+) -> dict:
+    """统一 Session 管理（本地/远程/OpenSandbox）。
+
+    action: "list"|"read"|"send"|"kill"|"status"
+    session_id: 会话 ID（action="list" 不需要）
+    command: action="send" 时发送的内容
+
+    execute_session("list")
+    execute_session("read", session_id="xxx")
+    execute_session("send", session_id="xxx", command="data\\n")
+    execute_session("kill", session_id="xxx")
+    execute_session("status", session_id="xxx")
+    """
+    global _opensandbox_last_used
+
+    if action == "list":
+        opensandbox_list = []
+        async with _opensandbox_sessions_lock:
+            for sid, s in _opensandbox_sessions.items():
+                opensandbox_list.append({
+                    "session_id": sid,
+                    "is_running": True,
+                    "alive_timeout": s.get("alive_timeout"),
+                })
+        local_list = session_manager.list_all()
+        return {"result": opensandbox_list + local_list}
+
+    if not session_id:
+        return {"success": False, "error": "session_id is required for action: " + action}
+
+    async with _opensandbox_sessions_lock:
+        is_opensandbox = session_id in _opensandbox_sessions
+
+    if is_opensandbox:
+        if action == "read":
+            return await _opensandbox_session_dispatch(session_id, "read", "", timeout or config.DEFAULT_TIMEOUT)
+        elif action == "send":
+            return await _opensandbox_session_dispatch(session_id, "send", command, timeout or config.DEFAULT_TIMEOUT)
+        elif action == "kill":
+            return await _opensandbox_session_dispatch(session_id, "kill", "", timeout or config.DEFAULT_TIMEOUT)
+        elif action == "status":
+            async with _opensandbox_sessions_lock:
+                s = _opensandbox_sessions.get(session_id)
+                if s is None:
+                    return {"success": False, "error": f"session {session_id} not found"}
+                return {"session_id": session_id, "is_running": True, "alive_timeout": s.get("alive_timeout")}
+        else:
+            return {"success": False, "error": f"unknown action: {action}"}
+
+    try:
+        if action == "read":
+            return session_manager.read(session_id)
+        elif action == "send":
+            session_manager.send(session_id, command)
+            return {"sent": True, "session_id": session_id}
+        elif action == "kill":
+            return session_manager.kill(session_id)
+        elif action == "status":
+            return session_manager.status(session_id)
+        else:
+            return {"success": False, "error": f"unknown action: {action}"}
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
 
 
 def main():

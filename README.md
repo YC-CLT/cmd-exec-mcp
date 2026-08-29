@@ -3,10 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Server-orange.svg)](https://modelcontextprotocol.io/)
-
-**Repo**: [github.com/YC-CLT/cmd-exec-mcp](https://github.com/YC-CLT/cmd-exec-mcp)
-
-<a id="english"></a>
+[![GitHub](https://img.shields.io/badge/github-YC--CLT%2Fcmd--exec--mcp-blue?logo=github)](https://github.com/YC-CLT/cmd-exec-mcp)
 
 [English](#english) | [中文](#中文)
 

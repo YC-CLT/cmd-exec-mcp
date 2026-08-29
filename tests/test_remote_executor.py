@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 import os
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 import config
 from models import ExecResult
 
@@ -21,83 +21,167 @@ class MockSSHConnection:
     async def run(self, command, timeout=None, env=None):
         return self
 
+    def start_sftp_client(self):
+        mock_sftp = MagicMock()
+        mock_sftp.put = AsyncMock()
+        mock_sftp.get = AsyncMock()
+        mock_sftp.__aenter__ = AsyncMock(return_value=mock_sftp)
+        mock_sftp.__aexit__ = AsyncMock(return_value=False)
+        return mock_sftp
 
-def _setup_remote_mocks(monkeypatch, ssh_config_mode, ssh_persistent):
+
+def _setup_remote_mocks(monkeypatch, ssh_persistent):
     import executors.remote as remote_mod
-    monkeypatch.setattr(remote_mod, "SSH_CONFIG_MODE", ssh_config_mode)
     monkeypatch.setattr(remote_mod, "SSH_PERSISTENT", ssh_persistent)
     monkeypatch.setattr(remote_mod, "SSH_CONNECTION_TIMEOUT", 10)
 
     mock_asyncssh = MagicMock()
-    mock_asyncssh.read_config = AsyncMock()
     mock_asyncssh.connect = AsyncMock()
     monkeypatch.setattr(remote_mod, "asyncssh", mock_asyncssh)
     return mock_asyncssh
 
 
+class TestParseTarget:
+    def test_host_only(self):
+        from executors.remote import RemoteExecutor
+        host, user, port = RemoteExecutor._parse_target("rpig")
+        assert host == "rpig"
+        assert user is None
+        assert port == 22
+
+    def test_host_with_port(self):
+        from executors.remote import RemoteExecutor
+        host, user, port = RemoteExecutor._parse_target("rpig:8022")
+        assert host == "rpig"
+        assert user == "root"
+        assert port == 8022
+
+    def test_user_at_host(self):
+        from executors.remote import RemoteExecutor
+        host, user, port = RemoteExecutor._parse_target("pi@rpig")
+        assert host == "rpig"
+        assert user == "pi"
+        assert port == 22
+
+    def test_user_at_host_with_port(self):
+        from executors.remote import RemoteExecutor
+        host, user, port = RemoteExecutor._parse_target("pi@rpig:8022")
+        assert host == "rpig"
+        assert user == "pi"
+        assert port == 8022
+
+    def test_ipv6_bracket(self):
+        from executors.remote import RemoteExecutor
+        host, user, port = RemoteExecutor._parse_target("user@[::1]:8022")
+        assert host == "::1"
+        assert user == "user"
+        assert port == 8022
+
+    def test_ipv6_bracket_no_port(self):
+        from executors.remote import RemoteExecutor
+        host, user, port = RemoteExecutor._parse_target("user@[::1]")
+        assert host == "::1"
+        assert user == "user"
+        assert port == 22
+
+
 class TestRemoteExecutorConnection:
     @pytest.mark.asyncio
-    async def test_standard_mode_reads_ssh_config(self, monkeypatch):
-        import executors.remote as remote_mod
-        monkeypatch.setattr(remote_mod, "SSH_HOST_NAME", "test-host")
-        mock_asyncssh = _setup_remote_mocks(monkeypatch, "standard", False)
+    async def test_connect_with_host_only(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
         mock_asyncssh.connect.return_value = MockSSHConnection()
 
         from executors.remote import RemoteExecutor
         executor = RemoteExecutor()
-        conn = await executor._connect()
+        conn = await executor._connect("rpig")
 
         mock_asyncssh.connect.assert_awaited_once()
         call_kwargs = mock_asyncssh.connect.call_args.kwargs
-        assert call_kwargs["host"] == "test-host"
+        assert call_kwargs["host"] == "rpig"
         assert "config" in call_kwargs
         assert conn is not None
 
     @pytest.mark.asyncio
-    async def test_custom_mode_reads_dotenv(self, monkeypatch):
-        monkeypatch.setenv("SSH_HOST", "192.168.1.100")
-        monkeypatch.setenv("SSH_PORT", "2222")
-        monkeypatch.setenv("SSH_USER", "deploy")
-        monkeypatch.setenv("SSH_KEY_PATH", "~/.ssh/id_rsa")
-        monkeypatch.setenv("SSH_PASSWORD", "")
-        monkeypatch.setenv("SSH_KNOWN_HOSTS", "true")
-
-        mock_asyncssh = _setup_remote_mocks(monkeypatch, "custom", False)
+    async def test_connect_with_user_and_port(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
         mock_asyncssh.connect.return_value = MockSSHConnection()
 
         from executors.remote import RemoteExecutor
         executor = RemoteExecutor()
-        conn = await executor._connect()
+        conn = await executor._connect("pi@rpig:8022")
 
         mock_asyncssh.connect.assert_awaited_once()
         call_kwargs = mock_asyncssh.connect.call_args.kwargs
-        assert call_kwargs["host"] == "192.168.1.100"
-        assert call_kwargs["port"] == 2222
-        assert call_kwargs["username"] == "deploy"
+        assert call_kwargs["host"] == "rpig"
+        assert call_kwargs["port"] == 8022
+        assert call_kwargs["username"] == "pi"
 
+
+class TestConnectionPool:
     @pytest.mark.asyncio
-    async def test_missing_host_raises(self, monkeypatch):
-        _setup_remote_mocks(monkeypatch, "custom", False)
-        monkeypatch.delenv("SSH_HOST", raising=False)
+    async def test_persistent_reuses_connection(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, True)
+        mock_asyncssh.connect.return_value = MockSSHConnection()
 
         from executors.remote import RemoteExecutor
         executor = RemoteExecutor()
-        with pytest.raises(RuntimeError, match="SSH_HOST not set"):
-            await executor._connect()
+        conn1 = await executor._get_connection("rpig")
+        conn2 = await executor._get_connection("rpig")
+
+        assert conn1 is conn2
+        mock_asyncssh.connect.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_different_targets_use_different_connections(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, True)
+        conn_a = MockSSHConnection()
+        conn_b = MockSSHConnection()
+        mock_asyncssh.connect.side_effect = [conn_a, conn_b]
+
+        from executors.remote import RemoteExecutor
+        executor = RemoteExecutor()
+        c1 = await executor._get_connection("rpig")
+        c2 = await executor._get_connection("other")
+
+        assert c1 is conn_a
+        assert c2 is conn_b
+
+
+class TestFileTransfer:
+    @pytest.mark.asyncio
+    async def test_upload_file(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
+        mock_conn = MockSSHConnection()
+        mock_asyncssh.connect.return_value = mock_conn
+
+        from executors.remote import RemoteExecutor
+        executor = RemoteExecutor()
+        await executor.upload_file("/local/path.txt", "/remote/path.txt", target="rpig")
+
+        mock_asyncssh.connect.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_download_file(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
+        mock_conn = MockSSHConnection()
+        mock_asyncssh.connect.return_value = mock_conn
+
+        from executors.remote import RemoteExecutor
+        executor = RemoteExecutor()
+        await executor.download_file("/remote/path.txt", "/local/path.txt", target="rpig")
+
+        mock_asyncssh.connect.assert_awaited_once()
 
 
 class TestRemoteExecutorExecute:
     @pytest.mark.asyncio
     async def test_execute_command(self, monkeypatch):
-        mock_ssh_config = MagicMock()
-        mock_ssh_config.hosts = {"test-host": {"HostName": "10.0.0.1", "Port": 22, "User": "admin"}}
-        mock_asyncssh = _setup_remote_mocks(monkeypatch, "standard", False)
-        mock_asyncssh.read_config.return_value = mock_ssh_config
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
         mock_asyncssh.connect.return_value = MockSSHConnection(stdout="hello world")
 
         from executors.remote import RemoteExecutor
         executor = RemoteExecutor()
-        result = await executor.execute("echo hello")
+        result = await executor.execute("echo hello", target="rpig")
 
         assert isinstance(result, ExecResult)
         assert result.stdout == "hello world"
@@ -109,15 +193,12 @@ class TestRemoteExecutorExecute:
         mock_conn = MockSSHConnection()
         mock_conn.run = AsyncMock(side_effect=asyncio.TimeoutError())
 
-        mock_ssh_config = MagicMock()
-        mock_ssh_config.hosts = {"test-host": {"HostName": "10.0.0.1", "Port": 22, "User": "admin"}}
-        mock_asyncssh = _setup_remote_mocks(monkeypatch, "standard", False)
-        mock_asyncssh.read_config.return_value = mock_ssh_config
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
         mock_asyncssh.connect.return_value = mock_conn
 
         from executors.remote import RemoteExecutor
         executor = RemoteExecutor()
-        result = await executor.execute("sleep 100", timeout=1)
+        result = await executor.execute("sleep 100", target="rpig", timeout=1)
 
         assert result.is_timeout is True
         assert result.exit_code == -1
@@ -125,47 +206,53 @@ class TestRemoteExecutorExecute:
 
     @pytest.mark.asyncio
     async def test_execute_nonzero_exit(self, monkeypatch):
-        mock_ssh_config = MagicMock()
-        mock_ssh_config.hosts = {"test-host": {"HostName": "10.0.0.1", "Port": 22, "User": "admin"}}
-        mock_asyncssh = _setup_remote_mocks(monkeypatch, "standard", False)
-        mock_asyncssh.read_config.return_value = mock_ssh_config
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
         mock_asyncssh.connect.return_value = MockSSHConnection(stdout="", stderr="error msg", exit_status=1)
 
         from executors.remote import RemoteExecutor
         executor = RemoteExecutor()
-        result = await executor.execute("bad command")
+        result = await executor.execute("bad command", target="rpig")
 
         assert result.exit_code == 1
         assert result.stderr == "error msg"
 
     @pytest.mark.asyncio
     async def test_persistent_mode_reuses_connection(self, monkeypatch):
-        mock_ssh_config = MagicMock()
-        mock_ssh_config.hosts = {"test-host": {"HostName": "10.0.0.1", "Port": 22, "User": "admin"}}
-        mock_asyncssh = _setup_remote_mocks(monkeypatch, "standard", True)
-        mock_asyncssh.read_config.return_value = mock_ssh_config
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, True)
         mock_asyncssh.connect.return_value = MockSSHConnection(stdout="ok")
 
         from executors.remote import RemoteExecutor
         executor = RemoteExecutor()
-        result1 = await executor.execute("cmd1")
-        result2 = await executor.execute("cmd2")
+        result1 = await executor.execute("cmd1", target="rpig")
+        result2 = await executor.execute("cmd2", target="rpig")
 
         assert result1.exit_code == 0
         assert result2.exit_code == 0
         mock_asyncssh.connect.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_execute_with_cwd(self, monkeypatch):
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
+        mock_conn = MockSSHConnection(stdout="ok")
+        mock_conn.run = AsyncMock(return_value=mock_conn)
+        mock_asyncssh.connect.return_value = mock_conn
+
+        from executors.remote import RemoteExecutor
+        executor = RemoteExecutor()
+        result = await executor.execute("ls", target="rpig", cwd="/home/user")
+
+        call_args = mock_conn.run.call_args
+        assert 'cd "/home/user"' in call_args[0][0]
+        assert result.exit_code == 0
+
+    @pytest.mark.asyncio
     async def test_execute_batch(self, monkeypatch):
-        mock_ssh_config = MagicMock()
-        mock_ssh_config.hosts = {"test-host": {"HostName": "10.0.0.1", "Port": 22, "User": "admin"}}
-        mock_asyncssh = _setup_remote_mocks(monkeypatch, "standard", False)
-        mock_asyncssh.read_config.return_value = mock_ssh_config
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
         mock_asyncssh.connect.return_value = MockSSHConnection(stdout="ok")
 
         from executors.remote import RemoteExecutor
         executor = RemoteExecutor()
-        results = await executor.execute_batch(["cmd1", "cmd2", "cmd3"])
+        results = await executor.execute_batch(["cmd1", "cmd2", "cmd3"], target="rpig")
 
         assert len(results) == 3
         for r in results:
@@ -176,15 +263,12 @@ class TestRemoteExecutorExecute:
 class TestRemoteExecutorExecuteBatch:
     @pytest.mark.asyncio
     async def test_batch_parallel(self, monkeypatch):
-        mock_ssh_config = MagicMock()
-        mock_ssh_config.hosts = {"test-host": {"HostName": "10.0.0.1", "Port": 22, "User": "admin"}}
-        mock_asyncssh = _setup_remote_mocks(monkeypatch, "standard", False)
-        mock_asyncssh.read_config.return_value = mock_ssh_config
+        mock_asyncssh = _setup_remote_mocks(monkeypatch, False)
         mock_asyncssh.connect.return_value = MockSSHConnection(stdout="ok")
 
         from executors.remote import RemoteExecutor
         executor = RemoteExecutor()
-        results = await executor.execute_batch(["echo one", "echo two"])
+        results = await executor.execute_batch(["echo one", "echo two"], target="rpig")
 
         assert len(results) == 2
         assert results[0].command_echo == "echo one"

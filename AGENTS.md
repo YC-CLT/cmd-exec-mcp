@@ -34,7 +34,9 @@
 | `SANDBOX_OPEN_*` | config.py | OpenSandbox 连接配置组 |
 | `DEFAULT_TIMEOUT` | config.py | 默认超时 30s，-1 无限 |
 | `FORCE_SHELL` | config.py | 强制指定 Shell pwsh/cmd/bash/wsl |
-| `SSH_CONFIG_MODE` | config.py | SSH 配置 standard/custom |
+| `SSH_DEFAULT_TARGET` | config.py | SSH 默认目标 [user@]host[:port] |
+| `SSH_DEFAULT_USER` | config.py | SSH 默认用户名 |
+| `SSH_DEFAULT_PORT` | config.py | SSH 默认端口 22 |
 | `SSH_PERSISTENT` | config.py | SSH 长连接复用 |
 | `WSL_DISTRO` / `WSL_USER` | config.py | WSL 发行版/用户名 |
 | `OUTPUT_TRUNCATE_LENGTH` | config.py | output_file 截断长度 |
@@ -116,3 +118,7 @@
 - **`execute_sandbox_file` 临时 sandbox**：不传 `session_id` 时自动创建临时 sandbox，操作完 `finally` 中销毁；传 `session_id` 时复用已有 sandbox 并重置 watchdog
 - **watchdog 可重置**：`_reset_watchdog(session_id)` 取消旧 task 并创建新 `_watchdog_loop`，实现 send/read 时延长 session 生命周期
 - **atexit 双重清理**：`_atexit_cleanup_opensandbox` + `_opensandbox_shutdown` 确保进程退出时清理所有 session 和 server
+- **MCP 工具 docstring 从简**：MCP 已从函数签名暴露参数名/类型/默认值，docstring 只需说明非显而易见的参数 + 1-2 个示例，删除罗列型参数说明和返回格式
+- **`execute_sandbox_file` 缩减后测试需同步**：移除 `read`/`write`/`list`/`delete`/`exists`/`content` 后，旧测试全部失效，需重写为 `upload`/`download` + `local_path` 模式
+- **SSH 目标解析格式**：`_parse_target()` 支持 `host`、`host:port`、`user@host`、`user@host:port`、`[::1]`、`[::1]:port` 六种格式，解析结果 `(host, user, port)`
+- **`execute_session` 统一入口**：跨本地/远程/OpenSandbox 三种 backend 的 session 操作统一走 `execute_session`，`execute_local`/`execute_sandbox`/`execute_remote` 不再接受 `session_id`/`action`

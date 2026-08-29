@@ -65,7 +65,7 @@ SANDBOX_DOCKER_PREFIX = (
 )
 
 # OpenSandbox 后端配置
-SANDBOX_OPEN_TEMPLATE = "opensandbox/code-interpreter:v1.1.0"
+SANDBOX_OPEN_TEMPLATE = "ctf-sandbox"
 SANDBOX_OPEN_SERVER_HOST = "localhost"
 SANDBOX_OPEN_SERVER_PORT = 8080
 SANDBOX_OPEN_API_KEY = "cmd-exec-mcp-dev"  # 生产环境必填，本地开发也建议占个位
@@ -93,10 +93,11 @@ SANDBOX_OPEN_SERVER_IDLE_TIMEOUT = 600     # 无请求空闲多久后自动关�
 SANDBOX_OPEN_PREFIX = ""
 
 # SSH 远程执行配置
-SSH_CONFIG_MODE = "standard"  # "standard" | "custom"
-SSH_HOST_NAME = "rpig"        # standard 模式下指定 Host 别名
-SSH_PERSISTENT = True        # 长连接复用
-SSH_CONNECTION_TIMEOUT = 10   # SSH 连接超时秒数
+SSH_DEFAULT_TARGET = "rpig"    # 默认 SSH 目标，格式: [user@]host[:port]
+SSH_DEFAULT_USER = "root"      # 默认 SSH 用户名
+SSH_DEFAULT_PORT = 22          # 默认 SSH 端口
+SSH_PERSISTENT = True          # 长连接复用
+SSH_CONNECTION_TIMEOUT = 10    # SSH 连接超时秒数
 
 # Session Detach 配置
 SESSION_DEFAULT_ALIVE_TIMEOUT = 300

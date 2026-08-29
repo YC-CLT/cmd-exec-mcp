@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2026-08-29 — SSH Remote 增强 + 统一 Session 工具
+
+### 变更
+
+- **SSH 配置重构** (`config.py`)：移除 `SSH_CONFIG_MODE`/`SSH_HOST_NAME`，新增 `SSH_DEFAULT_TARGET`/`SSH_DEFAULT_USER`/`SSH_DEFAULT_PORT`，统一目标格式 `[user@]host[:port]`
+- **SSH 连接池** (`executors/remote.py`)：`_conns` 改为 `dict[str, SSHClientConnection]` 按 target 缓存；新增 `_parse_target()` 静态方法解析目标字符串；新增 `upload_file()`/`download_file()` SFTP 文件传输
+- **Session 管理增强** (`executors/session.py`)：`SessionManager` 新增 `status()` 和 `list_all()` 方法
+- **`execute_remote` 工具** (`main.py`)：新增 `target`、`cwd` 参数，移除 `session_id`/`action`
+- **`execute_remote_file` 工具** (新增)：SSH 远程文件上传/下载（SFTP）
+- **`execute_session` 工具** (新增)：统一 Session 管理（list/read/send/kill/status），跨本地/远程/OpenSandbox
+- **`execute_local` / `execute_sandbox`**：移除 `session_id`/`action` 参数，session 操作统一走 `execute_session`
+- **`execute_sandbox_file`**：缩减为 `upload`/`download` 两种 action，移除 `read`/`write`/`list`/`delete`/`exists`/`content`
+- **清理**：`.env.example` 移除旧 SSH 配置项；`mcp_tools_summary.csv` 更新 6 个工具描述；`SKILL.md` 更新工具表和示例
+- **工具 docstring 简化**：MCP 已从签名拿到参数名/类型，docstring 只保留非显而易见的参数和 1-2 个示例
+
+### 测试
+
+- 更新 `test_config.py`、`test_remote_executor.py`、`test_session_manager.py`、`test_opensandbox_file.py` 匹配新 API
+- 新增 `TestParseTarget`、`TestConnectionPool`、`TestFileTransfer` 测试类
+- 全量回归：**112 passed, 8 skipped**
+
 ## 2026-08-22 — OpenSandbox Session 与文件 API 完善
 
 ### 新增
