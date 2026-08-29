@@ -558,14 +558,10 @@ async def execute_sandbox_file(
     try:
         _opensandbox_last_used = time.time()
         if action == "upload":
-            with open(local_path, "r") as f:
-                content = f.read()
-            await sandbox.files.write_file(path, content)
+            await opensandbox.upload_file(sandbox, local_path, path)
             return {"success": True, "data": None}
         elif action == "download":
-            content = await sandbox.files.read_file(path)
-            with open(local_path, "w") as f:
-                f.write(content)
+            await opensandbox.download_file(sandbox, path, local_path)
             return {"success": True, "data": None}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -587,12 +583,16 @@ async def execute_remote(
     output_file: str = "",
     detach: bool = False,
     target: str = None,
+    key: str = None,
+    no_known_hosts: bool = None,
     cwd: str = "",
     alive_timeout: int = None,
 ) -> dict | list[dict]:
     """SSH 远程命令执行。
 
     target: [user@]host[:port]，默认 SSH_DEFAULT_TARGET
+    key: SSH 密钥路径或密码字符串
+    no_known_hosts: True 跳过 known_hosts 校验
     cwd: 远程工作目录
     其余参数和返回格式同 execute_local。
 
@@ -606,7 +606,8 @@ async def execute_remote(
         if alive_timeout is None:
             alive_timeout = config.SESSION_DEFAULT_ALIVE_TIMEOUT
         validate_command(command)
-        return await session_manager.create(command, cwd, env, alive_timeout, _remote_executor)
+        return await session_manager.create(command, cwd, env, alive_timeout, _remote_executor,
+                                           target=target, key=key, no_known_hosts=no_known_hosts)
 
     timeout = resolve_timeout(timeout)
 
@@ -614,11 +615,13 @@ async def execute_remote(
         commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
         for cmd in commands:
             validate_command(cmd)
-        results = await _remote_executor.execute_batch(commands, target=target, timeout=timeout, env=env)
+        results = await _remote_executor.execute_batch(commands, target=target, key=key,
+            no_known_hosts=no_known_hosts, timeout=timeout, env=env, cwd=cwd)
         return [r.to_dict(fields) for r in results]
 
     validate_command(command)
-    result = await _remote_executor.execute(command, target=target, timeout=timeout, env=env, cwd=cwd)
+    result = await _remote_executor.execute(command, target=target, key=key,
+        no_known_hosts=no_known_hosts, timeout=timeout, env=env, cwd=cwd)
     return _handle_output_file(result, output_file).to_dict(fields)
 
 
@@ -628,6 +631,8 @@ async def execute_remote_file(
     path: str,
     local_path: str = "",
     target: str = None,
+    key: str = None,
+    no_known_hosts: bool = None,
 ) -> dict:
     """SSH 远程文件上传/下载（SFTP）。
 
@@ -635,6 +640,7 @@ async def execute_remote_file(
     path: 远程绝对路径
     local_path: 本地绝对路径
     target: [user@]host[:port]，默认 SSH_DEFAULT_TARGET
+    key: SSH 密钥路径或密码字符串
 
     execute_remote_file("upload", "/tmp/out.txt", local_path="D:/out.txt")
     execute_remote_file("download", "/var/log/syslog", local_path="D:/logs/syslog")
@@ -652,9 +658,9 @@ async def execute_remote_file(
 
     try:
         if action == "upload":
-            await _remote_executor.upload_file(local_path, path, target=target)
+            await _remote_executor.upload_file(local_path, path, target=target, key=key, no_known_hosts=no_known_hosts)
         else:
-            await _remote_executor.download_file(path, local_path, target=target)
+            await _remote_executor.download_file(path, local_path, target=target, key=key, no_known_hosts=no_known_hosts)
         return {"success": True, "data": None}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -687,7 +693,7 @@ async def execute_session(
             for sid, s in _opensandbox_sessions.items():
                 opensandbox_list.append({
                     "session_id": sid,
-                    "is_running": True,
+                    "is_running": s.get("last_result") is None,
                     "alive_timeout": s.get("alive_timeout"),
                 })
         local_list = session_manager.list_all()
@@ -711,7 +717,7 @@ async def execute_session(
                 s = _opensandbox_sessions.get(session_id)
                 if s is None:
                     return {"success": False, "error": f"session {session_id} not found"}
-                return {"session_id": session_id, "is_running": True, "alive_timeout": s.get("alive_timeout")}
+                return {"session_id": session_id, "is_running": s.get("last_result") is None, "alive_timeout": s.get("alive_timeout")}
         else:
             return {"success": False, "error": f"unknown action: {action}"}
 
