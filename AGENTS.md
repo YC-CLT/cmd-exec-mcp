@@ -122,3 +122,9 @@
 - **`execute_sandbox_file` 缩减后测试需同步**：移除 `read`/`write`/`list`/`delete`/`exists`/`content` 后，旧测试全部失效，需重写为 `upload`/`download` + `local_path` 模式
 - **SSH 目标解析格式**：`_parse_target()` 支持 `host`、`host:port`、`user@host`、`user@host:port`、`[::1]`、`[::1]:port` 六种格式，解析结果 `(host, user, port)`
 - **`execute_session` 统一入口**：跨本地/远程/OpenSandbox 三种 backend 的 session 操作统一走 `execute_session`，`execute_local`/`execute_sandbox`/`execute_remote` 不再接受 `session_id`/`action`
+- **`_is_key_path` 区分密钥与密码**：检查 `/`、`\`、`~` 前缀判断是否为文件路径，路径传给 `client_keys`，密码传给 `password`，避免 asyncssh 密码认证误判
+- **`execute_session` 是 async 函数**：测试中必须 `await`，同步调用返回 coroutine 而非 dict，`pytest.mark.asyncio` 不会自动 catch
+- **opensandbox 文件操作用 execd HTTP API**：`files.read_file`/`write_file` 是 SDK 高层封装，改用 execd 原生 HTTP API 更可靠，签名 `(sandbox, local_path, remote_path)` 顺序与 SDK 不同
+- **mock 变量名要和代码一致**：`monkeypatch.setattr("main.X", ...)` 中 `X` 必须与 `main.py` 中实际变量名一致，`_opensandbox_executor` 并不存在，实际是 `opensandbox`
+- **`execute_batch` 参数透传**：`execute_batch` 内部 `_run` 调用 `execute` 时必须透传所有参数（`cwd`、`env` 等），否则并行分支功能缺失
+- **`is_running` 不要硬编码**：opensandbox `list`/`status` 的 `is_running` 应基于 `s.get("last_result") is None` 而非 `True`，session 结束后 `last_result` 非空
