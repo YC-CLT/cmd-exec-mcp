@@ -3,7 +3,7 @@ import logging
 import os
 import time
 import asyncssh
-from config import SSH_DEFAULT_TARGET, SSH_DEFAULT_USER, SSH_DEFAULT_PORT, SSH_PERSISTENT, SSH_CONNECTION_TIMEOUT, DEFAULT_TIMEOUT
+from config import SSH_DEFAULT_TARGET, SSH_DEFAULT_USER, SSH_DEFAULT_PORT, SSH_PERSISTENT, SSH_CONNECTION_TIMEOUT, DEFAULT_TIMEOUT, SSH_DEFAULT_KEY, SSH_DEFAULT_NO_KNOWN_HOSTS
 from executors.base import BaseExecutor
 from models import ExecResult
 
@@ -38,33 +38,55 @@ class RemoteExecutor(BaseExecutor):
                 return host, SSH_DEFAULT_USER, int(port_str)
             return target, None, SSH_DEFAULT_PORT
 
-    async def _connect(self, target: str):
+    @staticmethod
+    def _is_key_path(key: str) -> bool:
+        if key.startswith("/") or key.startswith("~") or "/" in key or "\\" in key:
+            return True
+        if os.path.isfile(key):
+            return True
+        return False
+
+    async def _connect(self, target: str, key: str = None, no_known_hosts: bool = False):
         host, user, port = self._parse_target(target)
         config_paths = [os.path.expanduser("~/.ssh/config")]
+        client_keys = None
+        password = None
+        if key:
+            if self._is_key_path(key):
+                client_keys = [os.path.expanduser(key)]
+            else:
+                password = key
+        known_hosts = None if no_known_hosts else ()
         if user is None:
             return await asyncssh.connect(
-                host=host, config=config_paths,
+                host=host, config=config_paths, client_keys=client_keys,
+                password=password, known_hosts=known_hosts,
                 connect_timeout=SSH_CONNECTION_TIMEOUT,
             )
         return await asyncssh.connect(
-            host=host, port=port, username=user,
-            config=config_paths,
+            host=host, port=port, username=user, config=config_paths,
+            client_keys=client_keys, password=password, known_hosts=known_hosts,
             connect_timeout=SSH_CONNECTION_TIMEOUT,
         )
 
-    async def _get_connection(self, target: str):
-        if SSH_PERSISTENT and target in self._conns:
-            conn = self._conns[target]
+    async def _get_connection(self, target: str, key: str = None, no_known_hosts: bool = False):
+        pool_key = (target, key, no_known_hosts)
+        if SSH_PERSISTENT and pool_key in self._conns:
+            conn = self._conns[pool_key]
             if not conn.is_closed():
                 return conn
-        conn = await self._connect(target)
+        conn = await self._connect(target, key=key, no_known_hosts=no_known_hosts)
         if SSH_PERSISTENT:
-            self._conns[target] = conn
+            self._conns[pool_key] = conn
         return conn
 
-    async def execute(self, command, target=None, timeout=None, env=None, cwd=None):
+    async def execute(self, command, target=None, key=None, no_known_hosts=None, timeout=None, env=None, cwd=None):
         if target is None:
             target = SSH_DEFAULT_TARGET
+        if key is None:
+            key = SSH_DEFAULT_KEY
+        if no_known_hosts is None:
+            no_known_hosts = SSH_DEFAULT_NO_KNOWN_HOSTS
         if timeout is None:
             timeout = DEFAULT_TIMEOUT
         if timeout == -1:
@@ -76,7 +98,7 @@ class RemoteExecutor(BaseExecutor):
         start = time.time()
         logger.info("[remote] executing: %s", command)
         try:
-            conn = await self._get_connection(target)
+            conn = await self._get_connection(target, key=key, no_known_hosts=no_known_hosts)
             result = await conn.run(command, timeout=timeout, env=env)
             duration = time.time() - start
             ec = result.exit_status if result.exit_status is not None else 0
@@ -113,30 +135,42 @@ class RemoteExecutor(BaseExecutor):
             if not SSH_PERSISTENT:
                 conn.close()
 
-    async def execute_batch(self, commands, target=None, timeout=None, env=None):
+    async def execute_batch(self, commands, target=None, key=None, no_known_hosts=None, timeout=None, env=None, cwd=None):
         async def _run(cmd):
-            return await self.execute(cmd, target=target, timeout=timeout, env=env)
+            return await self.execute(cmd, target=target, key=key, no_known_hosts=no_known_hosts, timeout=timeout, env=env, cwd=cwd)
         return await asyncio.gather(*[_run(c) for c in commands])
 
-    async def create_session(self, command, target=None, cwd=None, env=None, alive_timeout=None):
+    async def create_session(self, command, target=None, key=None, no_known_hosts=None, cwd=None, env=None, alive_timeout=None):
         if target is None:
             target = SSH_DEFAULT_TARGET
+        if key is None:
+            key = SSH_DEFAULT_KEY
+        if no_known_hosts is None:
+            no_known_hosts = SSH_DEFAULT_NO_KNOWN_HOSTS
         if cwd:
             command = f'cd "{cwd}" && {command}'
-        conn = await self._get_connection(target)
+        conn = await self._get_connection(target, key=key, no_known_hosts=no_known_hosts)
         proc = await conn.create_process(command, env=env)
         return proc
 
-    async def upload_file(self, local_path, remote_path, target=None):
+    async def upload_file(self, local_path, remote_path, target=None, key=None, no_known_hosts=None):
         if target is None:
             target = SSH_DEFAULT_TARGET
-        conn = await self._get_connection(target)
+        if key is None:
+            key = SSH_DEFAULT_KEY
+        if no_known_hosts is None:
+            no_known_hosts = SSH_DEFAULT_NO_KNOWN_HOSTS
+        conn = await self._get_connection(target, key=key, no_known_hosts=no_known_hosts)
         async with conn.start_sftp_client() as sftp:
             await sftp.put(local_path, remote_path)
 
-    async def download_file(self, remote_path, local_path, target=None):
+    async def download_file(self, remote_path, local_path, target=None, key=None, no_known_hosts=None):
         if target is None:
             target = SSH_DEFAULT_TARGET
-        conn = await self._get_connection(target)
+        if key is None:
+            key = SSH_DEFAULT_KEY
+        if no_known_hosts is None:
+            no_known_hosts = SSH_DEFAULT_NO_KNOWN_HOSTS
+        conn = await self._get_connection(target, key=key, no_known_hosts=no_known_hosts)
         async with conn.start_sftp_client() as sftp:
             await sftp.get(remote_path, local_path)

@@ -17,12 +17,12 @@ class SessionManager:
         self._lock = asyncio.Lock()
         atexit.register(self._cleanup)
 
-    async def create(self, command, cwd, env, alive_timeout, executor):
+    async def create(self, command, cwd, env, alive_timeout, executor, **kwargs):
         if alive_timeout is None:
             alive_timeout = SESSION_DEFAULT_ALIVE_TIMEOUT
         session_id = str(uuid.uuid4())
         logger.info("session %s: creating, command=%r, timeout=%d", session_id, command, alive_timeout)
-        proc = await executor.create_session(command, cwd, env, alive_timeout)
+        proc = await executor.create_session(command, cwd, env, alive_timeout, **kwargs)
         session = ProcessSession(session_id=session_id, proc=proc, alive_timeout=alive_timeout)
         async with self._lock:
             self._sessions[session_id] = session
