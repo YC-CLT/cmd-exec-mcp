@@ -74,6 +74,26 @@ class SessionManager:
         asyncio.ensure_future(_remove())
         return {"killed": True, "session_id": session_id}
 
+    def status(self, session_id):
+        session = self._sessions.get(session_id)
+        if session is None:
+            raise ValueError(f"Session {session_id} not found")
+        return {
+            "session_id": session_id,
+            "is_running": session.exit_code is None,
+            "alive_timeout": session.alive_timeout,
+        }
+
+    def list_all(self):
+        return [
+            {
+                "session_id": sid,
+                "is_running": s.exit_code is None,
+                "alive_timeout": s.alive_timeout,
+            }
+            for sid, s in self._sessions.items()
+        ]
+
     def _cleanup(self):
         for session_id in list(self._sessions.keys()):
             session = self._sessions.get(session_id)
