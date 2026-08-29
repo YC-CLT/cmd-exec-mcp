@@ -34,8 +34,16 @@ def test_command_list_mode_is_valid():
     assert config.COMMAND_LIST_MODE in ("whitelist", "blacklist")
 
 
-def test_ssh_config_mode_is_valid():
-    assert config.SSH_CONFIG_MODE in ("standard", "custom")
+def test_ssh_default_target_is_string():
+    assert isinstance(config.SSH_DEFAULT_TARGET, str)
+
+
+def test_ssh_default_user_is_string():
+    assert isinstance(config.SSH_DEFAULT_USER, str)
+
+
+def test_ssh_default_port_is_int():
+    assert isinstance(config.SSH_DEFAULT_PORT, int)
 
 
 def test_ssh_persistent_is_bool():

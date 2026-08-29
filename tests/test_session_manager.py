@@ -169,3 +169,34 @@ async def test_cleanup_kills_all_sessions(session_manager):
     r2 = await session_manager.create("cat", ".", {}, 300, executor)
     session_manager._cleanup()
     assert len(session_manager._sessions) == 0
+
+
+def test_status(session_manager):
+    with pytest.raises(ValueError, match="not found"):
+        session_manager.status("nonexistent-id")
+
+
+@pytest.mark.asyncio
+async def test_status_running(session_manager):
+    executor = FakeExecutor(never_eof=True)
+    result = await session_manager.create("cat", ".", {}, 300, executor)
+    sid = result["session_id"]
+    s = session_manager.status(sid)
+    assert s["session_id"] == sid
+    assert s["is_running"] is True
+    assert s["alive_timeout"] == 300
+
+
+@pytest.mark.asyncio
+async def test_list_all(session_manager):
+    executor = FakeExecutor(never_eof=True)
+    r1 = await session_manager.create("cat", ".", {}, 300, executor)
+    r2 = await session_manager.create("cat", ".", {}, 300, executor)
+    sessions = session_manager.list_all()
+    assert len(sessions) == 2
+    sids = {s["session_id"] for s in sessions}
+    assert r1["session_id"] in sids
+    assert r2["session_id"] in sids
+    for s in sessions:
+        assert s["is_running"] is True
+        assert s["alive_timeout"] == 300
