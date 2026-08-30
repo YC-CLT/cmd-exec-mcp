@@ -10,6 +10,10 @@ from models import ExecResult
 logger = logging.getLogger("remote_executor")
 logger.setLevel(logging.INFO)
 
+# Windows: 确保 SSH_AUTH_SOCK 指向 OpenSSH agent 命名管道
+if os.name == "nt" and "SSH_AUTH_SOCK" not in os.environ:
+    os.environ["SSH_AUTH_SOCK"] = r"\\.\pipe\openssh-ssh-agent"
+
 
 class RemoteExecutor(BaseExecutor):
     def __init__(self):
@@ -46,6 +50,17 @@ class RemoteExecutor(BaseExecutor):
             return True
         return False
 
+    @staticmethod
+    def _is_encrypted_key(key_path: str) -> bool:
+        try:
+            with open(key_path, "r") as f:
+                for _ in range(3):
+                    if "ENCRYPTED" in f.readline():
+                        return True
+            return False
+        except (OSError, UnicodeDecodeError):
+            return False
+
     async def _connect(self, target: str, key: str = None, no_known_hosts: bool = False):
         host, user, port = self._parse_target(target)
         config_paths = [os.path.expanduser("~/.ssh/config")]
@@ -53,7 +68,11 @@ class RemoteExecutor(BaseExecutor):
         password = None
         if key:
             if self._is_key_path(key):
-                client_keys = [os.path.expanduser(key)]
+                key_path = os.path.expanduser(key)
+                if self._is_encrypted_key(key_path):
+                    logger.info("密钥 %s 已加密，回退到 SSH agent 认证", key_path)
+                else:
+                    client_keys = [key_path]
             else:
                 password = key
         known_hosts = None if no_known_hosts else ()

@@ -2,6 +2,12 @@
 
 ## 2026-08-29 — SSH Remote 增强 + 统一 Session 工具
 
+### Round 4: 加密密钥 agent 回退
+
+- **Windows SSH agent 支持** (`executors/remote.py`)：模块加载时自动设 `SSH_AUTH_SOCK=\\.\pipe\openssh-ssh-agent`
+- **加密密钥检测**：新增 `_is_encrypted_key()` 检测 `ENCRYPTED` 标记，加密密钥不传 `client_keys`，回退到 agent 认证
+- **`SSH_DEFAULT_KEY`** 恢复为 `"~/.ssh/id_rsa"`（加密密钥也能用 agent 了）
+
 ### Round 3: 文档精简 + 默认密钥
 
 - **SSH 默认密钥** (`config.py`)：`SSH_DEFAULT_KEY` 从 `None` 改为 `"~/.ssh/id_rsa"`，`_connect()` 中 `os.path.expanduser()` 跨平台展开
