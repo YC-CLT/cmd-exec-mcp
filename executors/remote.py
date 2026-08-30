@@ -10,9 +10,8 @@ from models import ExecResult
 logger = logging.getLogger("remote_executor")
 logger.setLevel(logging.INFO)
 
-# Windows: 确保 SSH_AUTH_SOCK 指向 OpenSSH agent 命名管道
-if os.name == "nt" and "SSH_AUTH_SOCK" not in os.environ:
-    os.environ["SSH_AUTH_SOCK"] = r"\\.\pipe\openssh-ssh-agent"
+# Windows: OpenSSH agent 命名管道路径
+_WIN_AGENT_PATH = r"\\.\pipe\openssh-ssh-agent" if os.name == "nt" else None
 
 
 class RemoteExecutor(BaseExecutor):
@@ -76,17 +75,22 @@ class RemoteExecutor(BaseExecutor):
             else:
                 password = key
         known_hosts = None if no_known_hosts else ()
-        if user is None:
-            return await asyncssh.connect(
-                host=host, config=config_paths, client_keys=client_keys,
-                password=password, known_hosts=known_hosts,
-                connect_timeout=SSH_CONNECTION_TIMEOUT,
-            )
-        return await asyncssh.connect(
-            host=host, port=port, username=user, config=config_paths,
-            client_keys=client_keys, password=password, known_hosts=known_hosts,
-            connect_timeout=SSH_CONNECTION_TIMEOUT,
-        )
+        agent_path = _WIN_AGENT_PATH
+
+        connect_kwargs = {
+            "host": host, "config": config_paths, "known_hosts": known_hosts,
+            "agent_path": agent_path,
+            "connect_timeout": SSH_CONNECTION_TIMEOUT,
+        }
+        if user is not None:
+            connect_kwargs["username"] = user
+            connect_kwargs["port"] = port
+        if client_keys is not None:
+            connect_kwargs["client_keys"] = client_keys
+        if password is not None:
+            connect_kwargs["password"] = password
+
+        return await asyncssh.connect(**connect_kwargs)
 
     async def _get_connection(self, target: str, key: str = None, no_known_hosts: bool = False):
         pool_key = (target, key, no_known_hosts)

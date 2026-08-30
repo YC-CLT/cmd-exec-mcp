@@ -131,6 +131,7 @@
 - **mock 变量名要和代码一致**：`monkeypatch.setattr("main.X", ...)` 中 `X` 必须与 `main.py` 中实际变量名一致，`_opensandbox_executor` 并不存在，实际是 `opensandbox`
 - **`execute_batch` 参数透传**：`execute_batch` 内部 `_run` 调用 `execute` 时必须透传所有参数（`cwd`、`env` 等），否则并行分支功能缺失
 - **`is_running` 不要硬编码**：opensandbox `list`/`status` 的 `is_running` 应基于 `s.get("last_result") is None` 而非 `True`，session 结束后 `last_result` 非空
-- **Windows SSH agent 命名管道**：`SSH_AUTH_SOCK=\\.\pipe\openssh-ssh-agent`，asyncssh 2.24.0 支持，但传 `client_keys=[path]` 会绕过 agent，加密密钥需不传 `client_keys` 才能走 agent
+- **Windows SSH agent 命名管道**：`_WIN_AGENT_PATH = \\.\pipe\openssh-ssh-agent`，传给 `asyncssh.connect()` 的 `agent_path` 参数（asyncssh 在 Windows 上不自动读取 `SSH_AUTH_SOCK`）
+- **`client_keys=None` / `password=None` 禁用认证**：`asyncssh.connect()` 默认值是 `()`（空元组），不是 `None`。传 `None` 会禁用对应认证方式（包括 agent），必须只在有实际值时传入
 - **加密密钥检测**：读文件头 3 行找 `ENCRYPTED` 标记即可判断，比 `asyncssh.read_private_key()` 更轻量且不抛异常
 - **`KeyImportError` 是 `ValueError` 子类**：`asyncssh.KeyEncryptionError` 存在但加密密钥实际抛 `KeyImportError`（`ValueError` 子类），不要依赖异常类型做分支

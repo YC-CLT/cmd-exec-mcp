@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-31 — SSH Agent 连通性修复
+
+### Round 5: `client_keys=None` 禁用 agent 认证修复
+
+- **根因**：`asyncssh.connect()` 的 `client_keys`/`password` 参数默认值是 `()`（空元组），不是 `None`。传 `client_keys=None` 会禁用所有密钥认证（包括 agent），传 `password=None` 会禁用密码认证
+- **修复** (`executors/remote.py`)：
+  - `_connect()` 中 `connect_kwargs` 字典按需注入：`client_keys`/`password` 仅在非 `None` 时传入，避免错误禁用认证
+  - `SSH_AUTH_SOCK` 环境变量改为模块级 `_WIN_AGENT_PATH` 常量，直接传给 `asyncssh.connect()` 的 `agent_path` 参数（asyncssh 在 Windows 上不自动读取 `SSH_AUTH_SOCK`）
+  - 合并两个分支（`user is None` / `user is not None`）为统一的 `connect_kwargs` 字典构建
+
 ## 2026-08-29 — SSH Remote 增强 + 统一 Session 工具
 
 ### Round 4: 加密密钥 agent 回退
