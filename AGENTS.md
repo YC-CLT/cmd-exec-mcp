@@ -85,6 +85,9 @@
 
 ## 经验/坑点
 
+- **`os.path.expanduser` 跨平台**：`~/.ssh/id_rsa` 在 Windows 上展开为 `C:\Users\xxx/.ssh/id_rsa`，asyncssh 认 Windows 路径，无需平台判断
+- **MCP docstring 只需示例**：FastMCP 从函数签名自动提取参数名/类型/默认值，docstring 只需写 1-2 个示例和关键注意事项，不必重复参数列表
+
 - **uv sync 会清 dev 依赖**：`uv sync` 只同步 `[project.dependencies]`，依赖变更后使用 `uv pip install -e ".[dev]"` 保留 dev 依赖
 - **Windows shell 单引号陷阱**：cmd.exe 不认单引号，跨平台测试命令一律用双引号
 - **subprocess 三大坑**：① `env=` 替换整个环境，先 `os.environ.copy()` 再 `.update()`；② `shell=True` + `cmd /c` 双层引号转义断裂；③ `timeout=` 只杀父进程，用 `Popen` + `taskkill /F /T /PID`

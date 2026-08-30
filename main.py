@@ -399,14 +399,7 @@ async def execute_local(
     detach: bool = False,
     alive_timeout: int = None,
 ) -> dict | list[dict]:
-    """Shell 命令执行（本地），支持黑白名单校验、并行、会话。
-
-    cwd: 工作目录（必填）
-    timeout: 超时秒数，-1=无限，默认 30
-    detach: True 后台运行，返回 session_id（后续用 execute_session 操作）
-    parallel: True + && 分隔 → 并行
-    shell: 指定 "cmd"|"pwsh"|"bash"|"wsl"，默认自动检测
-    output_file: 输出过长时落盘路径
+    """执行本地 shell 命令。cwd 必填。
 
     execute_local("git status", cwd="D:/project")
     execute_local("npm install", cwd="D:/project", timeout=120)
@@ -448,10 +441,7 @@ async def execute_sandbox(
     detach: bool = False,
     alive_timeout: int = None,
 ) -> dict | list[dict]:
-    """容器内命令执行（Docker/OpenSandbox），独立黑白名单。
-
-    无 cwd/shell。其余参数和返回格式同 execute_local。
-    Session 管理用 execute_session。
+    """容器内执行命令（Docker/OpenSandbox）。无 cwd/shell，其余同 execute_local。
 
     execute_sandbox("pip install numpy", timeout=120)
     execute_sandbox("python -c 'print(input())'", detach=True)
@@ -512,11 +502,6 @@ async def execute_sandbox_file(
     local_path: str = "",
 ) -> dict:
     """OpenSandbox 文件上传/下载。
-
-    action: "upload" | "download"
-    path: 沙箱内绝对路径
-    local_path: 本地绝对路径
-    session_id: 复用已有 session（可选）
 
     execute_sandbox_file("upload", "/home/user/script.py", local_path="D:/script.py")
     execute_sandbox_file("download", "/home/user/out.txt", local_path="D:/out.txt")
@@ -588,17 +573,10 @@ async def execute_remote(
     cwd: str = "",
     alive_timeout: int = None,
 ) -> dict | list[dict]:
-    """SSH 远程命令执行。
-
-    target: [user@]host[:port]，默认 SSH_DEFAULT_TARGET
-    key: SSH 密钥路径或密码字符串
-    no_known_hosts: True 跳过 known_hosts 校验
-    cwd: 远程工作目录
-    其余参数和返回格式同 execute_local。
+    """SSH 远程命令执行。target 格式 [user@]host[:port]，key 可为密钥路径或密码。
 
     execute_remote("docker ps", timeout=10)
     execute_remote("ls -la", target="pi@rpig:8022")
-    execute_remote("cat file.txt", cwd="/home/user")
     """
     global _remote_executor
 
@@ -634,13 +612,7 @@ async def execute_remote_file(
     key: str = None,
     no_known_hosts: bool = None,
 ) -> dict:
-    """SSH 远程文件上传/下载（SFTP）。
-
-    action: "upload" | "download"
-    path: 远程绝对路径
-    local_path: 本地绝对路径
-    target: [user@]host[:port]，默认 SSH_DEFAULT_TARGET
-    key: SSH 密钥路径或密码字符串
+    """SSH 远程文件上传/下载（SFTP）。target 格式 [user@]host[:port]。
 
     execute_remote_file("upload", "/tmp/out.txt", local_path="D:/out.txt")
     execute_remote_file("download", "/var/log/syslog", local_path="D:/logs/syslog")
@@ -673,17 +645,12 @@ async def execute_session(
     command: str = "",
     timeout: int = None,
 ) -> dict:
-    """统一 Session 管理（本地/远程/OpenSandbox）。
-
-    action: "list"|"read"|"send"|"kill"|"status"
-    session_id: 会话 ID（action="list" 不需要）
-    command: action="send" 时发送的内容
+    """统一 Session 管理（本地/远程/OpenSandbox）。action="list" 无需 session_id。
 
     execute_session("list")
     execute_session("read", session_id="xxx")
     execute_session("send", session_id="xxx", command="data\\n")
     execute_session("kill", session_id="xxx")
-    execute_session("status", session_id="xxx")
     """
     global _opensandbox_last_used
 

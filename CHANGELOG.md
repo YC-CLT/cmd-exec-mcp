@@ -2,6 +2,12 @@
 
 ## 2026-08-29 — SSH Remote 增强 + 统一 Session 工具
 
+### Round 3: 文档精简 + 默认密钥
+
+- **SSH 默认密钥** (`config.py`)：`SSH_DEFAULT_KEY` 从 `None` 改为 `"~/.ssh/id_rsa"`，`_connect()` 中 `os.path.expanduser()` 跨平台展开
+- **工具 docstring 精简** (`main.py`)：`execute_local`/`execute_sandbox`/`execute_sandbox_file`/`execute_remote`/`execute_remote_file`/`execute_session` 的 docstring 砍掉冗长参数列表，只保留示例
+- **SKILL.md 重写** (`skills/cmd-exec-mcp/SKILL.md`)：精简 Overview/When to Use，新增执行前自检清单，合并参数表，减少重复示例
+
 ### Bugfix
 - **`execute_batch` 补 `cwd` 参数**：`remote.py` 签名补 `cwd=None`，`main.py` 并行分支补 `cwd=cwd`
 - **`execute_session` `is_running` 硬编码**：opensandbox 的 `list`/`status` 改为 `s.get("last_result") is None`
