@@ -135,3 +135,4 @@
 - **`client_keys=None` / `password=None` 禁用认证**：`asyncssh.connect()` 默认值是 `()`（空元组），不是 `None`。传 `None` 会禁用对应认证方式（包括 agent），必须只在有实际值时传入
 - **加密密钥检测**：读文件头 3 行找 `ENCRYPTED` 标记即可判断，比 `asyncssh.read_private_key()` 更轻量且不抛异常
 - **`KeyImportError` 是 `ValueError` 子类**：`asyncssh.KeyEncryptionError` 存在但加密密钥实际抛 `KeyImportError`（`ValueError` 子类），不要依赖异常类型做分支
+- **`.sandbox.toml` 移至根目录后需全量更新引用**：文件从 `docs/opensandbox/` 移到根目录后，`.sandbox.toml` 自身注释、`README.md` 的 `copy` 命令、`CHANGELOG.md` 的路径引用都要同步更新

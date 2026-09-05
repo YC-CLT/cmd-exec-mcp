@@ -101,7 +101,7 @@ To use the OpenSandbox backend (`SANDBOX_BACKEND = "opensandbox"`):
 3. Deploy config:
 
    ```bash
-   copy docs\opensandbox\.sandbox.toml %USERPROFILE%\.sandbox.toml
+   copy .sandbox.toml %USERPROFILE%\.sandbox.toml
    ```
 
 4. Switch backend: `config.py` → `SANDBOX_BACKEND = "opensandbox"`
@@ -372,7 +372,7 @@ uv sync
 3. 部署配置：
 
    ```bash
-   copy docs\opensandbox\.sandbox.toml %USERPROFILE%\.sandbox.toml
+   copy .sandbox.toml %USERPROFILE%\.sandbox.toml
    ```
 
 4. 切换后端：`config.py` → `SANDBOX_BACKEND = "opensandbox"`

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-31 — .sandbox.toml 移至项目根目录
+
+- `.sandbox.toml` 从 `docs/opensandbox/` 移至项目根目录，作为 example 配置
+- `README.md` 中 `copy` 命令路径同步更新
+
 ## 2026-08-31 — SSH Agent 连通性修复
 
 ### Round 5: `client_keys=None` 禁用 agent 认证修复
@@ -155,7 +160,7 @@
 
 - README：OpenSandbox 前置条件步骤精简，包管理器统一 `uv pip install`
 - `docs/opensandbox/opensandbox调查报告.md`：新增 Code Interpreter 镜像章节，删除对 executor 无用的源码架构/Execd API 章节
-- `docs/opensandbox/.sandbox.toml`：Windows 本地开发配置模板
+- `.sandbox.toml`：Windows 本地开发配置模板
 
 ## 2026-08-05 — 非交互执行文档 + 配置同步
 
