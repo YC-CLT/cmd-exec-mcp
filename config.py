@@ -1,3 +1,5 @@
+import os
+
 # 安全模式: "restricted" | "full"
 SECURITY_MODE = "restricted"
 
@@ -69,6 +71,9 @@ SANDBOX_OPEN_TEMPLATE = "ctf-sandbox"
 SANDBOX_OPEN_SERVER_HOST = "localhost"
 SANDBOX_OPEN_SERVER_PORT = 8080
 SANDBOX_OPEN_API_KEY = "cmd-exec-mcp-dev"  # 生产环境必填，本地开发也建议占个位
+
+# OpenSandbox server 配置文件路径，默认项目根目录，不存在则回退 ~/.sandbox.toml
+SANDBOX_CONFIG_PATH = os.path.join(os.path.dirname(__file__), ".sandbox.toml")
 
 # OpenSandbox 入口脚本（code-interpreter.sh 负责初始化 PATH 和运行时环境）
 SANDBOX_OPEN_ENTRYPOINT = ["/opt/code-interpreter/code-interpreter.sh"]
