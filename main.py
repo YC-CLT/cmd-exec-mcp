@@ -160,6 +160,7 @@ _remote_executor = RemoteExecutor()
 session_manager = SessionManager()
 _opensandbox_server_started = False
 _opensandbox_server_proc = None
+_opensandbox_is_external = False
 _opensandbox_last_used = 0.0
 _opensandbox_idle_task = None
 _opensandbox_sessions = {}
@@ -169,7 +170,9 @@ _opensandbox_sessions_lock = asyncio.Lock()
 def start_opensandbox_server():
     """启动 opensandbox-server 子进程，等待就绪后返回。"""
     global _opensandbox_server_proc, _opensandbox_idle_task, _opensandbox_last_used
-    config_path = os.path.join(os.path.dirname(__file__), "docs", "opensandbox", ".sandbox.toml")
+    config_path = config.SANDBOX_CONFIG_PATH
+    if not os.path.exists(config_path):
+        config_path = os.path.expanduser("~/.sandbox.toml")
     proc = subprocess.Popen(
         ["opensandbox-server", "--config", config_path],
         stdin=subprocess.DEVNULL,
@@ -202,24 +205,34 @@ def _wait_for_server_ready():
 
 
 def _ensure_opensandbox_server():
-    """确保 server 在运行，崩了则重启。"""
-    global _opensandbox_server_started, _opensandbox_server_proc
+    """确保 server 在运行，崩了则重启。外部已有 server 则复用。"""
+    global _opensandbox_server_started, _opensandbox_server_proc, _opensandbox_is_external
     if _opensandbox_server_proc is not None and _opensandbox_server_proc.poll() is not None:
         _opensandbox_server_started = False
         _opensandbox_server_proc = None
     if not _opensandbox_server_started:
+        host = config.SANDBOX_OPEN_SERVER_HOST or "localhost"
+        port = config.SANDBOX_OPEN_SERVER_PORT or 8080
+        try:
+            urllib.request.urlopen(f"http://{host}:{port}/health", timeout=2)
+            _opensandbox_is_external = True
+            _opensandbox_server_started = True
+            return
+        except Exception:
+            pass
         start_opensandbox_server()
         _opensandbox_server_started = True
 
 
 def _opensandbox_shutdown():
-    """关闭 server 子进程 + 取消 idle watchdog。"""
-    global _opensandbox_server_proc, _opensandbox_idle_task, _opensandbox_server_started
+    """关闭 server 子进程 + 取消 idle watchdog。外部 server 不杀。"""
+    global _opensandbox_server_proc, _opensandbox_idle_task, _opensandbox_server_started, _opensandbox_is_external
     if _opensandbox_idle_task and not _opensandbox_idle_task.done():
         _opensandbox_idle_task.cancel()
-    if _opensandbox_server_proc and _opensandbox_server_proc.poll() is None:
+    if not _opensandbox_is_external and _opensandbox_server_proc and _opensandbox_server_proc.poll() is None:
         _opensandbox_server_proc.terminate()
     _opensandbox_server_started = False
+    _opensandbox_is_external = False
 
 
 def _schedule_idle_watchdog():
