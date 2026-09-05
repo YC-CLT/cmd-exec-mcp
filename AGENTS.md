@@ -32,6 +32,7 @@
 | `SANDBOX_COMMAND_WHITELIST` / `BLACKLIST` | config.py | 沙箱命令黑白名单 |
 | `SANDBOX_DEFAULT_IMAGE` | config.py | Docker 沙箱默认镜像 |
 | `SANDBOX_OPEN_*` | config.py | OpenSandbox 连接配置组 |
+| `SANDBOX_CONFIG_PATH` | config.py | OpenSandbox server 配置文件路径，默认项目根目录，回退 ~/.sandbox.toml |
 | `DEFAULT_TIMEOUT` | config.py | 默认超时 30s，-1 无限 |
 | `FORCE_SHELL` | config.py | 强制指定 Shell pwsh/cmd/bash/wsl |
 | `SSH_DEFAULT_TARGET` | config.py | SSH 默认目标 [user@]host[:port] |
@@ -136,3 +137,6 @@
 - **加密密钥检测**：读文件头 3 行找 `ENCRYPTED` 标记即可判断，比 `asyncssh.read_private_key()` 更轻量且不抛异常
 - **`KeyImportError` 是 `ValueError` 子类**：`asyncssh.KeyEncryptionError` 存在但加密密钥实际抛 `KeyImportError`（`ValueError` 子类），不要依赖异常类型做分支
 - **`.sandbox.toml` 移至根目录后需全量更新引用**：文件从 `docs/opensandbox/` 移到根目录后，`.sandbox.toml` 自身注释、`README.md` 的 `copy` 命令、`CHANGELOG.md` 的路径引用都要同步更新
+- **`config.py` 加 `os.path` 常量需要 `import os`**：config.py 原无 import，加 `os.path.join` 类常量后必须补 `import os`，否则所有 `import config` 的模块都崩
+- **配置优先放 config.py，不用环境变量**：`SANDBOX_CONFIG_PATH` 放 config.py 集中管理，加 `~/.sandbox.toml` 回退，比环境变量更可控
+- **外部 server 探活复用**：`_ensure_opensandbox_server()` 启动前先 `GET /health`，已有外部 server 则标记 `_is_external` 跳过启动，shutdown 时不误杀

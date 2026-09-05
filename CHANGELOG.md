@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-31 — 配置收尾：SANDBOX_CONFIG_PATH 集中化 + 外部 Server 兼容
+
+- `config.py` 新增 `import os` + `SANDBOX_CONFIG_PATH`，默认项目根目录 `.sandbox.toml`，不存在回退 `~/.sandbox.toml`
+- `main.py` `start_opensandbox_server()` 改用 `config.SANDBOX_CONFIG_PATH`，不再读环境变量
+- `main.py` `_ensure_opensandbox_server()` 新增 `/health` 探活，外部已启动 server 则复用不重启
+- `main.py` `_opensandbox_shutdown()` 外部 server 不 kill
+- `README.md` 配置表补充 `SSH_DEFAULT_*` 五个 + `SANDBOX_CONFIG_PATH`，部署说明、SSH 前置条件同步
+- `.sandbox.toml` 注释从 env var 改为 config.py 说明
+- `AGENTS.md` 关键常量表补 `SANDBOX_CONFIG_PATH`
+
 ## 2026-08-31 — .sandbox.toml 移至项目根目录
 
 - `.sandbox.toml` 从 `docs/opensandbox/` 移至项目根目录，作为 example 配置

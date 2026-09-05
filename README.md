@@ -72,6 +72,7 @@ Edit `config.py`:
 | `SANDBOX_OPEN_SERVER_HOST` | `"localhost"` | OpenSandbox Server host |
 | `SANDBOX_OPEN_SERVER_PORT` | `8080` | OpenSandbox Server port |
 | `SANDBOX_OPEN_API_KEY` | `"cmd-exec-mcp-dev"` | OpenSandbox API Key (required for production) |
+| `SANDBOX_CONFIG_PATH` | `.sandbox.toml` | Server config file path, falls back to `~/.sandbox.toml` |
 | `SANDBOX_OPEN_SERVER_STARTUP_TIMEOUT` | `15` | Max seconds to wait for server ready |
 | `SANDBOX_OPEN_SERVER_IDLE_TIMEOUT` | `600` | Idle seconds before auto-shutdown, -1 never |
 | `DEFAULT_TIMEOUT` | `30` | Timeout in seconds (-1 for unlimited) |
@@ -80,8 +81,11 @@ Edit `config.py`:
 | `SESSION_MAX_OUTPUT_LINES` | `10000` | Max lines buffered per session |
 | `SESSION_MAX_OUTPUT_BYTES` | `10485760` | Max bytes buffered per session (10 MB) |
 | `RESULT_FIELDS` | `{"stdout":True,...}` | Return field toggles |
-| `SSH_CONFIG_MODE` | `"standard"` | SSH config mode: `"standard"` \| `"custom"` |
-| `SSH_HOST_NAME` | — | SSH Host alias for standard mode |
+| `SSH_DEFAULT_TARGET` | — | SSH default target `[user@]host[:port]` |
+| `SSH_DEFAULT_USER` | `"admin"` | SSH default username |
+| `SSH_DEFAULT_PORT` | `22` | SSH default port |
+| `SSH_DEFAULT_KEY` | — | SSH key path or password string |
+| `SSH_DEFAULT_NO_KNOWN_HOSTS` | `False` | Skip known_hosts check |
 | `SSH_PERSISTENT` | `True` | Persistent SSH connection |
 | `SSH_CONNECTION_TIMEOUT` | `10` | SSH connection timeout in seconds |
 | `LOG_FILE` | `"log.txt"` | Log file path |
@@ -98,11 +102,7 @@ To use the OpenSandbox backend (`SANDBOX_BACKEND = "opensandbox"`):
    uv tool install opensandbox-server
    ```
 
-3. Deploy config:
-
-   ```bash
-   copy .sandbox.toml %USERPROFILE%\.sandbox.toml
-   ```
+3. Deploy config: defaults to project `.sandbox.toml`, falls back to `~/.sandbox.toml`. Override in `config.py` → `SANDBOX_CONFIG_PATH`
 
 4. Switch backend: `config.py` → `SANDBOX_BACKEND = "opensandbox"`
 5. API Key: can be arbitrary for local dev, but don't leave it empty or it will block for manual confirmation; set `SANDBOX_OPEN_API_KEY` in production
@@ -111,17 +111,8 @@ To use the OpenSandbox backend (`SANDBOX_BACKEND = "opensandbox"`):
 
 #### SSH Remote Execution Prerequisites
 
-1. Standard mode: configure `~/.ssh/config` and set `SSH_HOST_NAME` to the Host alias
-2. Custom mode: create `.env` in the project root, referencing `.env.example`:
-
-   ```env
-   SSH_HOST=192.168.1.100
-   SSH_PORT=22
-   SSH_USER=root
-   SSH_KEY_PATH=~/.ssh/id_rsa
-   SSH_PASSWORD=
-   SSH_KNOWN_HOSTS=true
-   ```
+1. Configure `~/.ssh/config` with Host alias, or set `SSH_DEFAULT_TARGET` in `config.py` (format: `[user@]host[:port]`)
+2. Or set environment variables: `SSH_DEFAULT_TARGET`, `SSH_DEFAULT_USER`, `SSH_DEFAULT_PORT`, `SSH_DEFAULT_KEY`, `SSH_DEFAULT_NO_KNOWN_HOSTS`
 
 ### Tools
 
@@ -342,6 +333,7 @@ uv sync
 | `SANDBOX_OPEN_SERVER_HOST` | `"localhost"` | OpenSandbox Server 地址 |
 | `SANDBOX_OPEN_SERVER_PORT` | `8080` | OpenSandbox Server 端口 |
 | `SANDBOX_OPEN_API_KEY` | `"cmd-exec-mcp-dev"` | OpenSandbox API Key（生产必填） |
+| `SANDBOX_CONFIG_PATH` | `.sandbox.toml` | Server 配置文件路径，不存在则回退 `~/.sandbox.toml` |
 | `SANDBOX_OPEN_SERVER_STARTUP_TIMEOUT` | `15` | 等待 Server 就绪的最长秒数 |
 | `SANDBOX_OPEN_SERVER_IDLE_TIMEOUT` | `600` | 空闲超时自动关闭秒数，-1 永不关闭 |
 | `DEFAULT_TIMEOUT` | `30` | 超时秒数（-1 无限制） |
@@ -350,8 +342,11 @@ uv sync
 | `SESSION_MAX_OUTPUT_LINES` | `10000` | 会话最大缓冲行数 |
 | `SESSION_MAX_OUTPUT_BYTES` | `10485760` | 会话最大缓冲字节（10 MB） |
 | `RESULT_FIELDS` | `{"stdout":True,...}` | 返回字段开关 |
-| `SSH_CONFIG_MODE` | `"standard"` | SSH 配置模式: `"standard"` \| `"custom"` |
-| `SSH_HOST_NAME` | — | standard 模式 SSH Host 别名 |
+| `SSH_DEFAULT_TARGET` | — | SSH 默认目标 `[user@]host[:port]` |
+| `SSH_DEFAULT_USER` | `"admin"` | SSH 默认用户名 |
+| `SSH_DEFAULT_PORT` | `22` | SSH 默认端口 |
+| `SSH_DEFAULT_KEY` | — | SSH 密钥路径或密码字符串 |
+| `SSH_DEFAULT_NO_KNOWN_HOSTS` | `False` | 跳过 known_hosts 检查 |
 | `SSH_PERSISTENT` | `True` | SSH 长连接复用 |
 | `SSH_CONNECTION_TIMEOUT` | `10` | SSH 连接超时秒数 |
 | `LOG_FILE` | `"log.txt"` | 日志文件路径 |
@@ -369,11 +364,7 @@ uv sync
    uv tool install opensandbox-server
    ```
 
-3. 部署配置：
-
-   ```bash
-   copy .sandbox.toml %USERPROFILE%\.sandbox.toml
-   ```
+3. 部署配置：默认项目 `.sandbox.toml`，不存在则回退 `~/.sandbox.toml`。在 `config.py` → `SANDBOX_CONFIG_PATH` 里改
 
 4. 切换后端：`config.py` → `SANDBOX_BACKEND = "opensandbox"`
 5. API Key：本地开发随意，但不建议留空，否则会阻塞让你手动确认；生产环境设 `SANDBOX_OPEN_API_KEY`
@@ -382,17 +373,8 @@ uv sync
 
 #### SSH 远程执行前置条件
 
-1. standard 模式：已配置 `~/.ssh/config`，设置 `SSH_HOST_NAME` 为 Host 别名
-2. custom 模式：项目根目录创建 `.env`，参考 `.env.example`:
-
-   ```env
-   SSH_HOST=192.168.1.100
-   SSH_PORT=22
-   SSH_USER=root
-   SSH_KEY_PATH=~/.ssh/id_rsa
-   SSH_PASSWORD=
-   SSH_KNOWN_HOSTS=true
-   ```
+1. 配置 `~/.ssh/config` 的 Host 别名，或在 `config.py` 设 `SSH_DEFAULT_TARGET`（格式：`[user@]host[:port]`）
+2. 或通过环境变量：`SSH_DEFAULT_TARGET`、`SSH_DEFAULT_USER`、`SSH_DEFAULT_PORT`、`SSH_DEFAULT_KEY`、`SSH_DEFAULT_NO_KNOWN_HOSTS`
 
 ### 工具
 
