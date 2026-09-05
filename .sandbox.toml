@@ -1,8 +1,7 @@
 # OpenSandbox Server 配置 — cmd-exec-mcp 用（Windows / Docker Desktop）
 #
-# 用法：
-#   opensandbox-server --config .sandbox.toml
-#   或设置环境变量：$env:SANDBOX_CONFIG_PATH = "D:\CodeFile\cmd-exec-mcp\.sandbox.toml"
+# 用法：config.py → SANDBOX_CONFIG_PATH 默认指向此文件，不存在则回退 ~/.sandbox.toml
+#   也可手动：opensandbox-server --config .sandbox.toml
 #
 # 前置条件：Docker Desktop 已安装并运行
 
