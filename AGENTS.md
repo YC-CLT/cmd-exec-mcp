@@ -86,6 +86,9 @@
 
 ## 经验/坑点
 
+- **Windows 系统代理陷阱**：`urllib.request.urlopen()` 和 `httpx.AsyncClient()` 在 Windows 上会自动读取系统代理设置，访问 `localhost` 时走代理返回 502。`urllib` 用 `ProxyHandler({})` 绕过，`httpx` 用 `proxy=None` 或直接用 SDK 内置 API 避免手搓 HTTP
+- **OpenSandbox SDK 版本升级 API 变更**：0.1.15 移除了 `sandbox._execd_token`，文件操作改用 `sandbox.files.write_file()`/`read_file()`（接受 `str | bytes | io.IOBase`），比手搓 HTTP 更干净且不受代理影响
+- **OpenSandbox server 超时下限**：`Sandbox.create(timeout=timedelta(seconds=30))` 会被 server 拒绝，最低要求 60s，需在 executor 层 clamp
 - **`os.path.expanduser` 跨平台**：`~/.ssh/id_rsa` 在 Windows 上展开为 `C:\Users\xxx/.ssh/id_rsa`，asyncssh 认 Windows 路径，无需平台判断
 - **MCP docstring 只需示例**：FastMCP 从函数签名自动提取参数名/类型/默认值，docstring 只需写 1-2 个示例和关键注意事项，不必重复参数列表
 

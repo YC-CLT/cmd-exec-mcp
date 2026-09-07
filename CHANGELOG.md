@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026-09-04 — OpenSandbox 连通性修复 + SDK 升级适配
+
+### 修复 1: 系统代理导致 health check 502
+
+- **根因**: Windows 上 `urllib.request.urlopen()` 自动读取系统代理（IE 代理），访问 `localhost:8080/health` 时走代理返回 502
+- **修复** (`main.py`): 新增 `_urlopen_no_proxy()` 函数，通过 `ProxyHandler({})` 绕过系统代理，`_wait_for_server_ready()` 和 `_ensure_opensandbox_server()` 改用此函数
+
+### 修复 2: OpenSandbox server 要求沙箱 timeout ≥ 60s
+
+- **根因**: `DEFAULT_TIMEOUT=30` 低于 opensandbox-server 最低要求 60s，创建沙箱返回 HTTP 422
+- **修复** (`executors/opensandbox.py`): `execute()` 中 `sandbox_timeout = max(timeout, 60)` 确保最低 60s
+- **修复** (`main.py`): `execute_sandbox_file()` 无 session 时 timeout 从 30 改为 60
+
+### 修复 3: SDK 0.1.15 文件操作 API 升级
+
+- **根因**: `sandbox._execd_token` 在 opensandbox 0.1.15 中已移除，文件上传/下载 抛 AttributeError
+- **修复** (`executors/opensandbox.py`): `upload_file()`/`download_file()` 改用 SDK 内置 `sandbox.files.write_file()`/`read_file()` API，不再手搓 HTTP 请求
+- 顺便移除废弃的 `import os` 和 `import httpx`
+
+### 其他
+
+- `.gitignore` 新增 `ctftest/`
+- `config.py` 注释掉 `SANDBOX_OPEN_ENTRYPOINT`（自定义镜像无需此入口）
+
 ## 2026-08-31 — 配置收尾：SANDBOX_CONFIG_PATH 集中化 + 外部 Server 兼容
 
 - `config.py` 新增 `import os` + `SANDBOX_CONFIG_PATH`，默认项目根目录 `.sandbox.toml`，不存在回退 `~/.sandbox.toml`

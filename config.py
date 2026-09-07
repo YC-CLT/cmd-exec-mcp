@@ -76,7 +76,7 @@ SANDBOX_OPEN_API_KEY = "cmd-exec-mcp-dev"  # 生产环境必填，本地开发�
 SANDBOX_CONFIG_PATH = os.path.join(os.path.dirname(__file__), ".sandbox.toml")
 
 # OpenSandbox 入口脚本（code-interpreter.sh 负责初始化 PATH 和运行时环境）
-SANDBOX_OPEN_ENTRYPOINT = ["/opt/code-interpreter/code-interpreter.sh"]
+#SANDBOX_OPEN_ENTRYPOINT = ["/opt/code-interpreter/code-interpreter.sh"]
 
 # OpenSandbox 运行时版本（传给 code-interpreter.sh 的环境变量）
 SANDBOX_OPEN_RUNTIME_ENV = {
