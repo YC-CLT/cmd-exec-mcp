@@ -187,6 +187,13 @@ def start_opensandbox_server():
     _schedule_idle_watchdog()
 
 
+def _urlopen_no_proxy(url, timeout=2):
+    """urllib.urlopen 不走系统代理，用于 localhost 健康检查。"""
+    proxy_handler = urllib.request.ProxyHandler({})
+    opener = urllib.request.build_opener(proxy_handler)
+    return opener.open(url, timeout=timeout)
+
+
 def _wait_for_server_ready():
     """轮询 health 端点直到 server 就绪或超时。"""
     host = config.SANDBOX_OPEN_SERVER_HOST or "localhost"
@@ -195,7 +202,7 @@ def _wait_for_server_ready():
     deadline = time.time() + config.SANDBOX_OPEN_SERVER_STARTUP_TIMEOUT
     while time.time() < deadline:
         try:
-            urllib.request.urlopen(url, timeout=2)
+            _urlopen_no_proxy(url, timeout=2)
             return
         except Exception:
             time.sleep(0.5)
@@ -214,7 +221,7 @@ def _ensure_opensandbox_server():
         host = config.SANDBOX_OPEN_SERVER_HOST or "localhost"
         port = config.SANDBOX_OPEN_SERVER_PORT or 8080
         try:
-            urllib.request.urlopen(f"http://{host}:{port}/health", timeout=2)
+            _urlopen_no_proxy(f"http://{host}:{port}/health", timeout=2)
             _opensandbox_is_external = True
             _opensandbox_server_started = True
             return
@@ -547,7 +554,7 @@ async def execute_sandbox_file(
             sandbox = await Sandbox.create(
                 config.SANDBOX_OPEN_TEMPLATE,
                 connection_config=opensandbox.conn,
-                timeout=timedelta(seconds=30),
+                timeout=timedelta(seconds=60),
                 entrypoint=getattr(config, "SANDBOX_OPEN_ENTRYPOINT", None),
             )
         except Exception as e:

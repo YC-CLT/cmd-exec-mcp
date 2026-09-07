@@ -57,7 +57,7 @@ class TestExecuteSandboxFile:
     @pytest.mark.asyncio
     async def test_download_file_with_temp_sandbox(self, file_module, monkeypatch, mock_sandbox_create, mock_opensandbox_executor):
         monkeypatch.setattr(config, "SANDBOX_BACKEND", "opensandbox")
-        monkeypatch.setattr(config, "SANDBOX_OPEN_ENTRYPOINT", None)
+        monkeypatch.setattr(config, "SANDBOX_OPEN_ENTRYPOINT", None, raising=False)
         monkeypatch.setattr(config, "SANDBOX_OPEN_TEMPLATE", "template")
         mock_conn = MagicMock()
         monkeypatch.setattr(file_module.opensandbox, "conn", mock_conn)
@@ -69,7 +69,7 @@ class TestExecuteSandboxFile:
     @pytest.mark.asyncio
     async def test_upload_file_with_temp_sandbox(self, file_module, monkeypatch, mock_sandbox_create, mock_opensandbox_executor):
         monkeypatch.setattr(config, "SANDBOX_BACKEND", "opensandbox")
-        monkeypatch.setattr(config, "SANDBOX_OPEN_ENTRYPOINT", None)
+        monkeypatch.setattr(config, "SANDBOX_OPEN_ENTRYPOINT", None, raising=False)
         monkeypatch.setattr(config, "SANDBOX_OPEN_TEMPLATE", "template")
         mock_conn = MagicMock()
         monkeypatch.setattr(file_module.opensandbox, "conn", mock_conn)

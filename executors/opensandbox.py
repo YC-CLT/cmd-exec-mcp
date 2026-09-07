@@ -1,8 +1,6 @@
 import asyncio
-import os
 import time
 from datetime import timedelta
-import httpx
 from opensandbox.config import ConnectionConfig
 from opensandbox.sandbox import Sandbox
 import config
@@ -21,10 +19,11 @@ class OpenSandboxExecutor(BaseExecutor):
         start = time.time()
         runtime_env = getattr(config, "SANDBOX_OPEN_RUNTIME_ENV", {})
         merged_env = {**runtime_env, **(env or {})}
+        sandbox_timeout = max(timeout, 60) if timeout and timeout > 0 else timeout
         sandbox = await Sandbox.create(
             config.SANDBOX_OPEN_TEMPLATE,
             connection_config=self.conn,
-            timeout=timedelta(seconds=timeout) if timeout and timeout > 0 else None,
+            timeout=timedelta(seconds=sandbox_timeout) if sandbox_timeout and sandbox_timeout > 0 else None,
             entrypoint=getattr(config, "SANDBOX_OPEN_ENTRYPOINT", None),
             env=merged_env,
         )
@@ -87,34 +86,10 @@ class OpenSandboxExecutor(BaseExecutor):
         await sandbox.destroy()
 
     async def upload_file(self, sandbox, local_path: str, remote_path: str):
-        execd_url = await sandbox.get_endpoint(44772)
-        base = execd_url.endpoint
-        if "://" not in base:
-            base = f"http://{base}"
-        url = f"{base}/files/upload"
-        token = sandbox._execd_token
-        async with httpx.AsyncClient() as client:
-            with open(local_path, "rb") as f:
-                response = await client.post(
-                    url,
-                    headers={"X-EXECD-ACCESS-TOKEN": token},
-                    files={"file": (os.path.basename(remote_path), f)},
-                )
-                response.raise_for_status()
+        with open(local_path, "rb") as f:
+            await sandbox.files.write_file(remote_path, f)
 
     async def download_file(self, sandbox, remote_path: str, local_path: str):
-        execd_url = await sandbox.get_endpoint(44772)
-        base = execd_url.endpoint
-        if "://" not in base:
-            base = f"http://{base}"
-        url = f"{base}/files/download"
-        token = sandbox._execd_token
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                url,
-                headers={"X-EXECD-ACCESS-TOKEN": token},
-                params={"path": remote_path},
-            )
-            response.raise_for_status()
-            with open(local_path, "wb") as f:
-                f.write(response.content)
+        data = await sandbox.files.read_file(remote_path)
+        with open(local_path, "w", encoding="utf-8") as f:
+            f.write(data)
