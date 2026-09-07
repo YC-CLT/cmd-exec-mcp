@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-09-08 — 文档整理：config.py 本地化 + OpenSandbox 调研合并
+
+- **config.py 本地化**: `config.py` 加入 `.gitignore`，不再提交到仓库；`config_example.py` 作为示例模板保留
+- **文档整理**: 删除 `docs/opensandbox/` 零散文档，合并为 `docs/2026-09-08-opensandbox-research.md` 调研报告
+- **AGENTS.md**: 更新文档路径引用
+
 ## 2026-09-04 — OpenSandbox 连通性修复 + SDK 升级适配
 
 ### 修复 1: 系统代理导致 health check 502

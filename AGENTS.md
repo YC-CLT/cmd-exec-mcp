@@ -58,7 +58,7 @@
 |------|------|
 | 项目设计文档 | `docs/superpowers/specs/` |
 | 项目实现计划 | `docs/superpowers/plans/` |
-| OpenSandbox 文档 | `docs/opensandbox/`（api/configuration/pysdk/server/调查报告） |
+| OpenSandbox 调研 | `docs/2026-09-08-opensandbox-research.md` |
 | OpenSandbox 官方 | `open-sandbox.ai/sdks/code-interpreter/python` |
 
 ## 工具
