@@ -101,6 +101,8 @@ run_mcp("cmd-exec-mcp", "execute_local", {"command": "git status", "cwd": "D:/pr
 - 多条独立命令？→ `&&` + `parallel: true`
 - 输出可能很长？→ 加 `output_file`
 - 后台常驻？→ `detach: True`，后续用 `execute_session`
+- 沙箱报 `sandbox disabled`？→ `config.SANDBOX_ENABLED=False`，RPi 等低资源设备已禁沙箱，用 `execute_local`/`execute_remote` 代替
+- 命令无需裹 `cmd /c` / `pwsh -c` / `bash -c`，`shell` 参数已控制解析器
 
 ## 常见错误
 
@@ -110,4 +112,5 @@ run_mcp("cmd-exec-mcp", "execute_local", {"command": "git status", "cwd": "D:/pr
 | `execute_session` 忘传 `session_id` | 除 `list` 外必须带 |
 | session 超时断开 | 延长 `alive_timeout` 或设 `-1` |
 | 用 `execute_local` 传 `session_id`/`action` | 改用 `execute_session` |
+| 命令裹了 `cmd /c`、`pwsh -c`、`bash -c` | 直接传原生命令，`shell` 参数已选解析器，不需要手动包裹 |
 | IPv6 解析失败 | 用 `[::1]` 或 `[::1]:8022` |
