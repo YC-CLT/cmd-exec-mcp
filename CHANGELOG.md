@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-09-22 — Sandbox 总开关 (SANDBOX_ENABLED)
+
+- **config.py**: 新增 `SANDBOX_ENABLED = True`，全局沙箱功能总开关，设为 `False` 时所有沙箱功能禁用（适用于 RPi 等低资源设备）
+- **main.py**: 6 个守卫点拦截沙箱操作：
+  - `_ensure_opensandbox_server()` — 静默返回，不启动 server
+  - `_opensandbox_session_create()` / `_opensandbox_session_dispatch()` — 返回 `sandbox disabled` 错误
+  - `execute_sandbox()` / `execute_sandbox_file()` — 返回 `sandbox disabled` 错误
+  - `execute_session()` OpenSandbox 分支 — 返回 `sandbox disabled` 错误
+- **AGENTS.md**: 关键常量表新增 `SANDBOX_ENABLED`
+
 ## 2026-09-08 — 文档整理：config.py 本地化 + OpenSandbox 调研合并
 
 - **config.py 本地化**: `config.py` 加入 `.gitignore`，不再提交到仓库；`config_example.py` 作为示例模板保留

@@ -213,6 +213,8 @@ def _wait_for_server_ready():
 
 def _ensure_opensandbox_server():
     """确保 server 在运行，崩了则重启。外部已有 server 则复用。"""
+    if not config.SANDBOX_ENABLED:
+        return
     global _opensandbox_server_started, _opensandbox_server_proc, _opensandbox_is_external
     if _opensandbox_server_proc is not None and _opensandbox_server_proc.poll() is not None:
         _opensandbox_server_started = False
@@ -301,6 +303,8 @@ async def _opensandbox_session_cleanup(session_id):
 
 
 async def _opensandbox_session_create(command, env, alive_timeout):
+    if not config.SANDBOX_ENABLED:
+        return {"success": False, "error": "sandbox disabled (SANDBOX_ENABLED=False)"}
     global _opensandbox_last_used
     _ensure_opensandbox_server()
     sandbox, os_session_id = await opensandbox.create_session(
@@ -337,6 +341,8 @@ async def _opensandbox_session_create(command, env, alive_timeout):
 
 
 async def _opensandbox_session_dispatch(session_id, action, command, timeout):
+    if not config.SANDBOX_ENABLED:
+        return {"success": False, "error": "sandbox disabled (SANDBOX_ENABLED=False)"}
     global _opensandbox_last_used
     async with _opensandbox_sessions_lock:
         session = _opensandbox_sessions.get(session_id)
@@ -468,6 +474,9 @@ async def execute_sandbox(
     """
     global _opensandbox_server_started, _opensandbox_last_used
 
+    if not config.SANDBOX_ENABLED:
+        return {"success": False, "error": "sandbox disabled (SANDBOX_ENABLED=False)"}
+
     timeout = resolve_timeout(timeout)
 
     if detach:
@@ -529,6 +538,9 @@ async def execute_sandbox_file(
     global _opensandbox_last_used
     if config.SANDBOX_BACKEND != "opensandbox":
         return {"success": False, "error": "execute_sandbox_file 仅支持 opensandbox 后端"}
+
+    if not config.SANDBOX_ENABLED:
+        return {"success": False, "error": "sandbox disabled (SANDBOX_ENABLED=False)"}
 
     if action not in ("upload", "download"):
         return {"success": False, "error": f"unknown action: {action}, use 'upload' or 'download'"}
@@ -693,6 +705,8 @@ async def execute_session(
         is_opensandbox = session_id in _opensandbox_sessions
 
     if is_opensandbox:
+        if not config.SANDBOX_ENABLED:
+            return {"success": False, "error": "sandbox disabled (SANDBOX_ENABLED=False)"}
         if action == "read":
             return await _opensandbox_session_dispatch(session_id, "read", "", timeout or config.DEFAULT_TIMEOUT)
         elif action == "send":

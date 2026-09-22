@@ -28,6 +28,7 @@
 | `SECURITY_MODE` | config.py | 安全模式 restricted/full |
 | `COMMAND_WHITELIST` / `BLACKLIST` | config.py | 本地/远程命令黑白名单 |
 | `SANDBOX_BACKEND` | config.py | 沙箱后端 docker/opensandbox |
+| `SANDBOX_ENABLED` | config.py | 沙箱总开关，False 禁用所有沙箱功能 |
 | `SANDBOX_SECURITY_MODE` | config.py | 沙箱安全模式（仅 Docker 后端） |
 | `SANDBOX_COMMAND_WHITELIST` / `BLACKLIST` | config.py | 沙箱命令黑白名单 |
 | `SANDBOX_DEFAULT_IMAGE` | config.py | Docker 沙箱默认镜像 |
