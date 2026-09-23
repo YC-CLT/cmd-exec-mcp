@@ -17,7 +17,7 @@ level = "INFO"
 
 [runtime]
 type = "docker"
-execd_image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.1.0"
+execd_image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.0.21"
 
 [docker]
 # Windows Docker Desktop 只能用 bridge，host 模式无效
