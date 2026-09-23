@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-09-22 — OpenSandbox v1.1.0 升级失败 + 回退
+
+### 升级尝试
+
+- **opensandbox-server**: `v0.2.3` → `v1.1.0`（`uv tool upgrade`）
+- **opensandbox SDK**: `0.1.15` → `1.1.0`（`uv pip install --upgrade`）
+- **execd 镜像**: `v1.0.21` → `v1.1.0`（`.sandbox.toml` 同步）
+- **pyproject.toml**: `opensandbox>=0.1.0` → `opensandbox>=1.0.0`，同步 `uv.lock`
+
+### 回退原因
+
+- `opensandbox-server v1.1.0` PyPI wheel 打包缺 `opensandbox_server.services.fast_sandbox.generated` 模块（protobuf 编译产物），server **无法启动**
+- 报错: `ModuleNotFoundError: No module named 'opensandbox_server.services.fast_sandbox.generated'`
+
+### 回退后稳定版本
+
+| 组件 | 版本 |
+|------|------|
+| opensandbox-server | v0.2.3 |
+| opensandbox SDK | 0.1.15 |
+| execd 镜像 | v1.0.21 |
+
+- `pyproject.toml` 恢复 `opensandbox>=0.1.0`，`uv.lock` 恢复 `opensandbox 0.1.15`
+- sandbox 功能验证：`echo hello` 正常执行（17s 冷启动）
+
 ## 2026-09-22 — Sandbox 总开关 (SANDBOX_ENABLED)
 
 - **config.py**: 新增 `SANDBOX_ENABLED = True`，全局沙箱功能总开关，设为 `False` 时所有沙箱功能禁用（适用于 RPi 等低资源设备）

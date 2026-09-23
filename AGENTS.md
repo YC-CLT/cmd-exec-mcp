@@ -142,5 +142,6 @@
 - **`KeyImportError` 是 `ValueError` 子类**：`asyncssh.KeyEncryptionError` 存在但加密密钥实际抛 `KeyImportError`（`ValueError` 子类），不要依赖异常类型做分支
 - **`.sandbox.toml` 移至根目录后需全量更新引用**：文件从 `docs/opensandbox/` 移到根目录后，`.sandbox.toml` 自身注释、`README.md` 的 `copy` 命令、`CHANGELOG.md` 的路径引用都要同步更新
 - **`config.py` 加 `os.path` 常量需要 `import os`**：config.py 原无 import，加 `os.path.join` 类常量后必须补 `import os`，否则所有 `import config` 的模块都崩
+- **OpenSandbox 大版本升级前需验证 server 可启动**：v1.1.0 PyPI wheel 缺 `fast_sandbox.generated` protobuf 编译模块，server 直接崩。升级后先手动跑 `opensandbox-server --config .sandbox.toml` 看是否报 `ModuleNotFoundError`，确认能启动再替换 execd 镜像、更新 pyproject.toml 和 lock 文件。版本跨越大（0.x → 1.x）时风险更高，server / SDK / execd 三个组件版本需对齐
 - **配置优先放 config.py，不用环境变量**：`SANDBOX_CONFIG_PATH` 放 config.py 集中管理，加 `~/.sandbox.toml` 回退，比环境变量更可控
 - **外部 server 探活复用**：`_ensure_opensandbox_server()` 启动前先 `GET /health`，已有外部 server 则标记 `_is_external` 跳过启动，shutdown 时不误杀
