@@ -34,6 +34,38 @@ class TestValidateCommand:
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
         validate_command("  echo   hello  ")
 
+    def test_chain_pipe_blocks_second_command(self, monkeypatch):
+        monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
+        with pytest.raises(ValueError, match="blacklist"):
+            validate_command("echo hello | pip install requests")
+
+    def test_chain_and_blocks_second_command(self, monkeypatch):
+        monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
+        with pytest.raises(ValueError, match="blacklist"):
+            validate_command("git clone repo && npm install")
+
+    def test_chain_or_blocks_second_command(self, monkeypatch):
+        monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
+        with pytest.raises(ValueError, match="blacklist"):
+            validate_command("make build || npx create-app")
+
+    def test_chain_semicolon_blocks_second_command(self, monkeypatch):
+        monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
+        with pytest.raises(ValueError, match="blacklist"):
+            validate_command("cd dir; npm start")
+
+    def test_uv_pip_not_blocked(self, monkeypatch):
+        monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
+        validate_command("uv pip list")
+
+    def test_pnpx_not_blocked(self, monkeypatch):
+        monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
+        validate_command("pnpx create-app")
+
+    def test_pnpm_not_blocked(self, monkeypatch):
+        monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
+        validate_command("pnpm install")
+
 
 class TestDetectShell:
     def test_force_shell_takes_priority(self, monkeypatch):

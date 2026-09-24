@@ -1,5 +1,6 @@
 # main.py
 import asyncio
+import re
 import atexit
 import os
 import platform
@@ -72,23 +73,30 @@ def ensure_single_instance():
         sys.exit(0)
 
 
+def _get_chain_command_words(command: str) -> list[str]:
+    """拆分链式命令（||, &&, |, ;），返回每个子命令的首词。"""
+    segments = re.split(r'\s*(?:\|\||&&|;|\|)\s*', command)
+    return [seg.strip().split()[0] for seg in segments if seg.strip()]
+
+
 def validate_command(command: str):
     """校验命令是否允许执行。受限模式下检查，完全模式放行。"""
     if config.SECURITY_MODE == "full":
         return
 
-    cmd_name = command.strip().split()[0] if command.strip() else ""
-    if cmd_name in config.COMMAND_BLACKLIST:
-        raise ValueError(
-            f"Command '{cmd_name}' is in blacklist, execution denied. "
-            f"Show the command to user for manual copy-paste instead."
-        )
+    cmd_words = _get_chain_command_words(command)
+    for cmd_name in cmd_words:
+        if cmd_name in config.COMMAND_BLACKLIST:
+            raise ValueError(
+                f"Command '{cmd_name}' is in blacklist, execution denied. "
+                f"Show the command to user for manual copy-paste instead."
+            )
 
-    if config.COMMAND_LIST_MODE == "whitelist" and cmd_name not in config.COMMAND_WHITELIST:
-        raise ValueError(
-            f"Command '{cmd_name}' is not in whitelist, execution denied. "
-            f"Allowed commands: {config.COMMAND_WHITELIST}"
-        )
+        if config.COMMAND_LIST_MODE == "whitelist" and cmd_name not in config.COMMAND_WHITELIST:
+            raise ValueError(
+                f"Command '{cmd_name}' is not in whitelist, execution denied. "
+                f"Allowed commands: {config.COMMAND_WHITELIST}"
+            )
 
 
 def validate_sandbox_command(command: str):
@@ -96,16 +104,17 @@ def validate_sandbox_command(command: str):
     if config.SANDBOX_SECURITY_MODE == "full":
         return
 
-    cmd_name = command.strip().split()[0] if command.strip() else ""
-    if cmd_name in config.SANDBOX_COMMAND_BLACKLIST:
-        raise ValueError(
-            f"Command '{cmd_name}' is in sandbox blacklist, execution denied. "
-            f"Show the command to user for manual copy-paste instead."
-        )
-    if config.SANDBOX_COMMAND_LIST_MODE == "whitelist" and config.SANDBOX_COMMAND_WHITELIST and cmd_name not in config.SANDBOX_COMMAND_WHITELIST:
-        raise ValueError(
-            f"Command '{cmd_name}' is not in sandbox whitelist, execution denied"
-        )
+    cmd_words = _get_chain_command_words(command)
+    for cmd_name in cmd_words:
+        if cmd_name in config.SANDBOX_COMMAND_BLACKLIST:
+            raise ValueError(
+                f"Command '{cmd_name}' is in sandbox blacklist, execution denied. "
+                f"Show the command to user for manual copy-paste instead."
+            )
+        if config.SANDBOX_COMMAND_LIST_MODE == "whitelist" and config.SANDBOX_COMMAND_WHITELIST and cmd_name not in config.SANDBOX_COMMAND_WHITELIST:
+            raise ValueError(
+                f"Command '{cmd_name}' is not in sandbox whitelist, execution denied"
+            )
 
 
 def detect_shell() -> str:
