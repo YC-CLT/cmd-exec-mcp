@@ -88,14 +88,14 @@ def validate_command(command: str):
     for cmd_name in cmd_words:
         if cmd_name in config.COMMAND_BLACKLIST:
             raise ValueError(
-                f"Command '{cmd_name}' is in blacklist, execution denied. "
-                f"Show the command to user for manual copy-paste instead."
+                f"BLOCKED: '{cmd_name}' is restricted. "
+                f"Stop and ask user to paste this command manually."
             )
 
         if config.COMMAND_LIST_MODE == "whitelist" and cmd_name not in config.COMMAND_WHITELIST:
             raise ValueError(
-                f"Command '{cmd_name}' is not in whitelist, execution denied. "
-                f"Allowed commands: {config.COMMAND_WHITELIST}"
+                f"BLOCKED: '{cmd_name}' not in whitelist. "
+                f"Stop and ask user to paste this command manually."
             )
 
 
@@ -108,12 +108,13 @@ def validate_sandbox_command(command: str):
     for cmd_name in cmd_words:
         if cmd_name in config.SANDBOX_COMMAND_BLACKLIST:
             raise ValueError(
-                f"Command '{cmd_name}' is in sandbox blacklist, execution denied. "
-                f"Show the command to user for manual copy-paste instead."
+                f"BLOCKED: '{cmd_name}' is restricted. "
+                f"Stop and ask user to paste this command manually."
             )
         if config.SANDBOX_COMMAND_LIST_MODE == "whitelist" and config.SANDBOX_COMMAND_WHITELIST and cmd_name not in config.SANDBOX_COMMAND_WHITELIST:
             raise ValueError(
-                f"Command '{cmd_name}' is not in sandbox whitelist, execution denied"
+                f"BLOCKED: '{cmd_name}' not in sandbox whitelist. "
+                f"Stop and ask user to paste this command manually."
             )
 
 

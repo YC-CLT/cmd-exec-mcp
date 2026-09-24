@@ -145,3 +145,5 @@
 - **OpenSandbox 大版本升级前需验证 server 可启动**：v1.1.0 PyPI wheel 缺 `fast_sandbox.generated` protobuf 编译模块，server 直接崩。升级后先手动跑 `opensandbox-server --config .sandbox.toml` 看是否报 `ModuleNotFoundError`，确认能启动再替换 execd 镜像、更新 pyproject.toml 和 lock 文件。版本跨越大（0.x → 1.x）时风险更高，server / SDK / execd 三个组件版本需对齐
 - **配置优先放 config.py，不用环境变量**：`SANDBOX_CONFIG_PATH` 放 config.py 集中管理，加 `~/.sandbox.toml` 回退，比环境变量更可控
 - **外部 server 探活复用**：`_ensure_opensandbox_server()` 启动前先 `GET /health`，已有外部 server 则标记 `_is_external` 跳过启动，shutdown 时不误杀
+- **安全门禁遇 shell 启动器必须拦截**：`cmd`/`bash`/`pwsh`/`wsl` 可启动子 shell 逃逸上下文执行任意命令，即使 validate 在 wrap 之前也不安全，必须进黑名单
+- **门禁校验改首词匹配为链式匹配**：`split()[0]` 只取第一段，`||`/`&&`/`|`/`;` 链式命令的下游首词被忽略。用 `re.split` 拆段后逐段取首词校验

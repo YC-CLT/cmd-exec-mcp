@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-09-22 — 安全门禁加码
+
+- **链式命令拦截**: `validate_command` / `validate_sandbox_command` 新增 `_get_chain_command_words()` 按 `||`、`&&`、`|`、`;` 拆分后逐段校验首词，封堵 `echo hello | pip install` 等绕过
+- **黑名单扩充**: 新增 `pip`、`npm`、`npx`（防全局污染）+ `cmd`、`powershell`、`pwsh`、`wsl`、`bash`（防 shell 逃逸）
+- **误伤保护**: `uv pip list`（首词 `uv`）、`pnpx`（首词 `pnpx`）不受影响
+- **拦截提示精简**: 4 条门禁报错统一为 `BLOCKED: 'xxx' ... Stop and ask user to paste this command manually.`
+- **测试同步**: `test_security.py` + `test_sandbox_security.py` match 改为 `"BLOCKED"`，新增 7 个链式拦截用例
+
 ## 2026-09-22 — OpenSandbox v1.1.0 升级失败 + 回退
 
 ### 升级尝试

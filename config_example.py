@@ -10,7 +10,7 @@ COMMAND_LIST_MODE = "blacklist"
 
 # 白名单/黑名单（仅在 restricted 模式下生效）
 COMMAND_WHITELIST = ["ls", "dir", "git", "python", "echo", "cat", "type", "pwd", "cd"]
-COMMAND_BLACKLIST = ["rm", "del", "shutdown", "reboot", "format", "dd", "pip", "npm", "npx"]
+COMMAND_BLACKLIST = ["rm", "del", "Remove-Item", "shutdown", "reboot", "format", "dd", "pip", "npm", "npx", "cmd", "powershell", "pwsh", "wsl", "bash"]
 
 # 默认超时（秒），-1 表示无超时限制，调用方可覆盖
 DEFAULT_TIMEOUT = 30

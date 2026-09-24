@@ -11,13 +11,13 @@ class TestValidateCommand:
 
     def test_blacklisted_command_raises(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
-        with pytest.raises(ValueError, match="blacklist"):
+        with pytest.raises(ValueError, match="BLOCKED"):
             validate_command("rm -rf /")
 
     def test_not_whitelisted_command_raises(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
         monkeypatch.setattr(config, "COMMAND_LIST_MODE", "whitelist")
-        with pytest.raises(ValueError, match="whitelist"):
+        with pytest.raises(ValueError, match="BLOCKED"):
             validate_command("unknown_command arg")
 
     def test_full_mode_allows_any_command(self, monkeypatch):
@@ -27,7 +27,7 @@ class TestValidateCommand:
     def test_blacklist_takes_priority(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
         monkeypatch.setattr(config, "COMMAND_WHITELIST", ["rm"])
-        with pytest.raises(ValueError, match="blacklist"):
+        with pytest.raises(ValueError, match="BLOCKED"):
             validate_command("rm file.txt")
 
     def test_command_with_extra_spaces(self, monkeypatch):
@@ -36,22 +36,22 @@ class TestValidateCommand:
 
     def test_chain_pipe_blocks_second_command(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
-        with pytest.raises(ValueError, match="blacklist"):
+        with pytest.raises(ValueError, match="BLOCKED"):
             validate_command("echo hello | pip install requests")
 
     def test_chain_and_blocks_second_command(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
-        with pytest.raises(ValueError, match="blacklist"):
+        with pytest.raises(ValueError, match="BLOCKED"):
             validate_command("git clone repo && npm install")
 
     def test_chain_or_blocks_second_command(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
-        with pytest.raises(ValueError, match="blacklist"):
+        with pytest.raises(ValueError, match="BLOCKED"):
             validate_command("make build || npx create-app")
 
     def test_chain_semicolon_blocks_second_command(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
-        with pytest.raises(ValueError, match="blacklist"):
+        with pytest.raises(ValueError, match="BLOCKED"):
             validate_command("cd dir; npm start")
 
     def test_uv_pip_not_blocked(self, monkeypatch):
