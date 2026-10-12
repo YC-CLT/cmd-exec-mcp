@@ -147,3 +147,4 @@
 - **外部 server 探活复用**：`_ensure_opensandbox_server()` 启动前先 `GET /health`，已有外部 server 则标记 `_is_external` 跳过启动，shutdown 时不误杀
 - **安全门禁遇 shell 启动器必须拦截**：`cmd`/`bash`/`pwsh`/`wsl` 可启动子 shell 逃逸上下文执行任意命令，即使 validate 在 wrap 之前也不安全，必须进黑名单
 - **门禁校验改首词匹配为链式匹配**：`split()[0]` 只取第一段，`||`/`&&`/`|`/`;` 链式命令的下游首词被忽略。用 `re.split` 拆段后逐段取首词校验
+- **WSL cwd 不能传 Linux 路径给 subprocess**：`shell=wsl` 时 `cwd` 是 Linux 路径（如 `/home/kali`），`subprocess.Popen(cwd=)` 只认 Windows 路径会报 `WinError 267`。`wrap_command` 加 `--cd` 传 WSL 内工作目录，`execute_local` 中 `exec_cwd` 置 `None` 用当前目录

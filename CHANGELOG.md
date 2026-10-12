@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-10-13 — WSL cwd 修复
+
+- **问题**：`shell=wsl` + Linux 路径 cwd（如 `/home/kali`）时报 `[WinError 267] 目录名称无效`，因 `subprocess.Popen(cwd=)` 不接受 Linux 路径
+- **修复**：`wrap_command` 新增 `cwd` 参数，WSL 时追加 `--cd "{cwd}"`；`execute_local` 中 `exec_cwd` 区分为 `None`（WSL）或原值
+- **影响面**：detach / parallel / 普通执行三分支全量覆盖
+- **测试**：138 passed, 8 skipped，无回归
+
 ## 2026-09-22 — 安全门禁加码
 
 - **链式命令拦截**: `validate_command` / `validate_sandbox_command` 新增 `_get_chain_command_words()` 按 `||`、`&&`、`|`、`;` 拆分后逐段校验首词，封堵 `echo hello | pip install` 等绕过

@@ -128,15 +128,16 @@ def detect_shell() -> str:
     return "bash"
 
 
-def wrap_command(command: str, shell: str = None) -> str:
+def wrap_command(command: str, shell: str = None, cwd: str = None) -> str:
     """根据检测到的 Shell 包装命令。shell 参数可覆盖自动检测。"""
     shell = shell or detect_shell()
     if shell == "wsl":
         distro = config.WSL_DISTRO
         user = config.WSL_USER
         distro_arg = f"-d {distro} " if distro else ""
+        cd_arg = f'--cd "{cwd}" ' if cwd else ""
         escaped = command.replace('"', '\\"')
-        return f'wsl {distro_arg}-u {user} --shell-type standard -- bash -c "{escaped}"'
+        return f'wsl {distro_arg}{cd_arg}-u {user} --shell-type standard -- bash -c "{escaped}"'
     elif shell == "powershell" or shell == "pwsh":
         escaped = command.replace('"', '\\"')
         preamble = (
@@ -443,12 +444,15 @@ async def execute_local(
     if not cwd:
         raise ValueError("cwd is required for command execution")
 
+    resolved_shell = shell or detect_shell()
+    exec_cwd = cwd if resolved_shell != "wsl" else None
+
     if detach:
         if alive_timeout is None:
             alive_timeout = config.SESSION_DEFAULT_ALIVE_TIMEOUT
         validate_command(command)
-        command = wrap_command(command, shell)
-        return await session_manager.create(command, cwd, env, alive_timeout, executor)
+        command = wrap_command(command, shell, cwd)
+        return await session_manager.create(command, exec_cwd, env, alive_timeout, executor)
 
     timeout = resolve_timeout(timeout)
 
@@ -456,13 +460,13 @@ async def execute_local(
         commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
         for cmd in commands:
             validate_command(cmd)
-        commands = [wrap_command(cmd, shell) for cmd in commands]
-        results = await executor.execute_batch(commands, cwd=cwd, timeout=timeout, env=env)
+        commands = [wrap_command(cmd, shell, cwd) for cmd in commands]
+        results = await executor.execute_batch(commands, cwd=exec_cwd, timeout=timeout, env=env)
         return [r.to_dict(fields) for r in results]
 
     validate_command(command)
-    command = wrap_command(command, shell)
-    result = await executor.execute(command, cwd=cwd, timeout=timeout, env=env)
+    command = wrap_command(command, shell, cwd)
+    result = await executor.execute(command, cwd=exec_cwd, timeout=timeout, env=env)
     return _handle_output_file(result, output_file).to_dict(fields)
 
 
