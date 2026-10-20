@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-10-13 — SSH 安全校验独立
+
+- **独立校验**：`execute_remote` 改用 `validate_remote_command`，读取独立的 `SSH_SECURITY_MODE` / `SSH_COMMAND_LIST_MODE` / `SSH_COMMAND_WHITELIST` / `SSH_COMMAND_BLACKLIST`，不再与本地共用 `COMMAND_*`
+- **SSH 黑名单**：`rm`, `dd`, `shutdown`, `reboot`, `format`, `mount`, `fdisk`, `passwd` — 去掉了本地黑名单中的 Windows 独有命令（`del`, `Remove-Item`）和 shell 启动器（`cmd`, `pwsh`, `bash` 等），新增远端破坏性命令（`mount`, `fdisk`, `passwd`）
+
 ## 2026-10-13 — WSL cwd 修复
 
 - **问题**：`shell=wsl` + Linux 路径 cwd（如 `/home/kali`）时报 `[WinError 267] 目录名称无效`，因 `subprocess.Popen(cwd=)` 不接受 Linux 路径

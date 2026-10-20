@@ -118,6 +118,26 @@ def validate_sandbox_command(command: str):
             )
 
 
+def validate_remote_command(command: str):
+    """SSH 远端安全校验（独立于本地/沙箱模式）"""
+    if config.SSH_SECURITY_MODE == "full":
+        return
+
+    cmd_words = _get_chain_command_words(command)
+    for cmd_name in cmd_words:
+        if cmd_name in config.SSH_COMMAND_BLACKLIST:
+            raise ValueError(
+                f"BLOCKED: '{cmd_name}' is restricted. "
+                f"Stop and ask user to paste this command manually."
+            )
+
+        if config.SSH_COMMAND_LIST_MODE == "whitelist" and config.SSH_COMMAND_WHITELIST and cmd_name not in config.SSH_COMMAND_WHITELIST:
+            raise ValueError(
+                f"BLOCKED: '{cmd_name}' not in SSH whitelist. "
+                f"Stop and ask user to paste this command manually."
+            )
+
+
 def detect_shell() -> str:
     """返回当前系统应使用的 Shell 类型。"""
     if config.FORCE_SHELL:
@@ -629,7 +649,7 @@ async def execute_remote(
     if detach:
         if alive_timeout is None:
             alive_timeout = config.SESSION_DEFAULT_ALIVE_TIMEOUT
-        validate_command(command)
+        validate_remote_command(command)
         return await session_manager.create(command, cwd, env, alive_timeout, _remote_executor,
                                            target=target, key=key, no_known_hosts=no_known_hosts)
 
@@ -638,12 +658,12 @@ async def execute_remote(
     if parallel:
         commands = [cmd.strip() for cmd in command.split("&&") if cmd.strip()]
         for cmd in commands:
-            validate_command(cmd)
+            validate_remote_command(cmd)
         results = await _remote_executor.execute_batch(commands, target=target, key=key,
             no_known_hosts=no_known_hosts, timeout=timeout, env=env, cwd=cwd)
         return [r.to_dict(fields) for r in results]
 
-    validate_command(command)
+    validate_remote_command(command)
     result = await _remote_executor.execute(command, target=target, key=key,
         no_known_hosts=no_known_hosts, timeout=timeout, env=env, cwd=cwd)
     return _handle_output_file(result, output_file).to_dict(fields)
