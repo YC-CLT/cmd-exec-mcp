@@ -106,6 +106,12 @@ SSH_DEFAULT_NO_KNOWN_HOSTS = False  # 默认是否跳过 known_hosts 校验
 SSH_PERSISTENT = True          # 长连接复用
 SSH_CONNECTION_TIMEOUT = 10    # SSH 连接超时秒数
 
+# SSH 安全配置（独立于本地模式）
+SSH_SECURITY_MODE = "restricted"        # "restricted" 启用校验，"full" 放行
+SSH_COMMAND_LIST_MODE = "blacklist"     # "whitelist" | "blacklist"
+SSH_COMMAND_WHITELIST = []              # 白名单（whitelist 模式时生效）
+SSH_COMMAND_BLACKLIST = ["rm", "dd", "shutdown", "reboot", "format", "mount", "fdisk", "passwd"]  # 远端破坏性命令
+
 # Session Detach 配置
 SESSION_DEFAULT_ALIVE_TIMEOUT = 300
 SESSION_MAX_OUTPUT_LINES = 10000

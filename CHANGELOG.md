@@ -125,6 +125,7 @@
 - **SKILL.md 重写** (`skills/cmd-exec-mcp/SKILL.md`)：精简 Overview/When to Use，新增执行前自检清单，合并参数表，减少重复示例
 
 ### Bugfix
+
 - **`execute_batch` 补 `cwd` 参数**：`remote.py` 签名补 `cwd=None`，`main.py` 并行分支补 `cwd=cwd`
 - **`execute_session` `is_running` 硬编码**：opensandbox 的 `list`/`status` 改为 `s.get("last_result") is None`
 
