@@ -28,37 +28,41 @@ logger = logging.getLogger("local")
 def _env_from_registry():
     _env = {}
     import winreg
-    # 1. 读 HKLM：机器级环境
+    def _read_key(key):
+        i = 0
+        while True:
+            try:
+                name, value, _ = winreg.EnumValue(key, i)
+                _env[name.upper()] = str(value)
+                i += 1
+            except OSError:
+                break
     try:
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
                             r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment") as key:
-            i = 0
-            while True:
-                try:
-                    name, value, _ = winreg.EnumValue(key, i)
-                    _env[name] = str(value)
-                    i += 1
-                except OSError:
-                    break
+            _read_key(key)
     except OSError:
         pass
     # 2. 读 HKCU：用户级环境（覆盖同名的机器段）
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
-            i = 0
-            while True:
-                try:
-                    name, value, _ = winreg.EnumValue(key, i)
-                    _env[name] = str(value)
-                    i += 1
-                except OSError:
-                    break
+            _read_key(key)
     except OSError:
         pass
-    # 3. 展开 %VAR% 引用（注册表中的 PATH 等含 %SystemRoot% 等）
+    # 3. 补全系统变量（注册表中可能不含 SystemRoot，ExpandEnvironmentStrings 需要）
+    _sysvars = {
+        "SYSTEMROOT": os.environ.get("SystemRoot", os.path.join(
+            os.environ.get("SystemDrive", "C:"), "Windows")),
+        "SYSTEMDRIVE": os.environ.get("SystemDrive", "C:"),
+        "WINDIR": os.environ.get("windir", os.path.join(
+            os.environ.get("SystemDrive", "C:"), "Windows")),
+    }
+    for k, v in _sysvars.items():
+        _env.setdefault(k, v)
+    # 4. 展开 %VAR% 引用
     def _expand(m):
         var = m.group(1)
-        return os.environ.get(var, _env.get(var, m.group(0)))
+        return _env.get(var.upper(), os.environ.get(var, m.group(0)))
     for k in list(_env.keys()):
         expanded = re.sub(r"%([^%]+)%", _expand, _env[k])
         if expanded != _env[k]:
