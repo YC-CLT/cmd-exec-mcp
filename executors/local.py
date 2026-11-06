@@ -89,6 +89,7 @@ def _env_from_registry():
         "SYSTEMDRIVE": os.environ.get("SystemDrive", "C:"),
         "WINDIR": os.environ.get("windir", os.path.join(
             os.environ.get("SystemDrive", "C:"), "Windows")),
+        "USERNAME": os.environ.get("USERNAME", ""),
     }
     # 4. 用户级 volatile 变量（注册表中不存在，Windows 登录时注入）
     #    优先从 os.environ 取（非 SYSTEM 场景），否则从 ProfileList 找真实用户
