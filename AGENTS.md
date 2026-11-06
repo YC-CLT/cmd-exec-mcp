@@ -102,6 +102,7 @@
 - **Windows 注册表环境重建 SYSTEM 账户坑**：`USERPROFILE`/`HOME`/`HOMEDRIVE`/`HOMEPATH`/`LOCALAPPDATA`/`APPDATA` 是 Windows 登录时注入的易失变量，不在持久注册表（HKLM/HKCU Environment）中。MCP 可能运行在 SYSTEM 账户，此时 `os.environ` 不含上述变量，需从 `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList` 找 `S-1-5-21-*` 真实用户的 `ProfileImagePath` 作为 fallback。
 - **subprocess 三大坑**：① `env=` 替换整个环境，先 `os.environ.copy()` 再 `.update()`；② `shell=True` + `cmd /c` 双层引号转义断裂；③ `timeout=` 只杀父进程，用 `Popen` + `taskkill /F /T /PID`
 - **Windows 管道句柄继承**：`asyncio.create_subprocess_shell` 管道可被孙子进程继承，改用 `loop.run_in_executor` + `subprocess.run(stdin=DEVNULL, capture_output=True)`
+- **Windows OpenSSH registry 模式不兼容**：`ENV_SOURCE="registry"` 时 `C:\Windows\System32\OpenSSH\ssh.exe` 无法从 MCP 子进程启动（exit 255 零输出），原因不明。临时方案切 `ENV_SOURCE="inherit"`。git push 等需要 SSH 的操作若失败可指定 MSYS2/其他 SSH 路径或用 `execute_remote`
 - **OpenSandbox entrypoint 陷阱**：默认 entrypoint 不执行 `code-interpreter.sh`，Python 等运行时不在 PATH。必须显式传 `entrypoint=["/opt/code-interpreter/code-interpreter.sh"]` + env 版本变量
 - **OpenSandbox env 注入优于命令前缀**：镜像源等环境变量通过 `Sandbox.create(env=...)` 注入，比 Docker 后端 `--entrypoint` 方案更干净
 - **OpenSandbox 超时**：`Sandbox.create()` 的 timeout 接受 `timedelta` 或 `None`，`-1` 需转为 `None`

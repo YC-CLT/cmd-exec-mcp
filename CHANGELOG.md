@@ -14,6 +14,12 @@
 - **独立校验**：`execute_remote` 改用 `validate_remote_command`，读取独立的 `SSH_SECURITY_MODE` / `SSH_COMMAND_LIST_MODE` / `SSH_COMMAND_WHITELIST` / `SSH_COMMAND_BLACKLIST`，不再与本地共用 `COMMAND_*`
 - **SSH 黑名单**：`rm`, `dd`, `shutdown`, `reboot`, `format`, `mount`, `fdisk`, `passwd` — 去掉了本地黑名单中的 Windows 独有命令（`del`, `Remove-Item`）和 shell 启动器（`cmd`, `pwsh`, `bash` 等），新增远端破坏性命令（`mount`, `fdisk`, `passwd`）
 
+## 2026-11-07 — 注册表环境 PATH 合并 + USERNAME 覆盖 + 已知副作用
+
+- **PATH 合并**：`_env_from_registry` 原先 HKLM PATH 被 HKCU 完全覆盖，`C:\Windows\System32\OpenSSH` 等系统路径丢失。修复为先保存 HKLM PATH，HKCU 读完后拼接
+- **USERNAME 覆盖**：HKLM 注册表存有 `USERNAME=SYSTEM`（服务残留），HKCU 无此键，导致子进程 `USERNAME=SYSTEM`。用 `os.environ["USERNAME"]` 覆盖
+- **已知副作用**：registry 模式下 `C:\Windows\System32\OpenSSH\ssh.exe` 无法启动（exit 255 零输出），root cause 未明，切为 `inherit` 模式可恢复。`execute_remote` 不受影响（用 Python SSH 库）
+
 ## 2026-11-06 — 注册表环境 SYSTEM 账户兼容
 
 - **根因**：`_env_from_registry` 从 `os.environ` 补全 `USERPROFILE`/`HOME`/`HOMEDRIVE` 等易失变量，但 MCP 进程运行在 SYSTEM 账户时 `os.environ` 全空，导致 git/uv/cargo 等工具找不到用户配置
