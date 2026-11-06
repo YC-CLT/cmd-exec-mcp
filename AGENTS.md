@@ -98,6 +98,8 @@
 
 - **uv sync 会清 dev 依赖**：`uv sync` 只同步 `[project.dependencies]`，依赖变更后使用 `uv pip install -e ".[dev]"` 保留 dev 依赖
 - **Windows shell 单引号陷阱**：cmd.exe 不认单引号，跨平台测试命令一律用双引号
+
+- **Windows 注册表环境重建 SYSTEM 账户坑**：`USERPROFILE`/`HOME`/`HOMEDRIVE`/`HOMEPATH`/`LOCALAPPDATA`/`APPDATA` 是 Windows 登录时注入的易失变量，不在持久注册表（HKLM/HKCU Environment）中。MCP 可能运行在 SYSTEM 账户，此时 `os.environ` 不含上述变量，需从 `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList` 找 `S-1-5-21-*` 真实用户的 `ProfileImagePath` 作为 fallback。
 - **subprocess 三大坑**：① `env=` 替换整个环境，先 `os.environ.copy()` 再 `.update()`；② `shell=True` + `cmd /c` 双层引号转义断裂；③ `timeout=` 只杀父进程，用 `Popen` + `taskkill /F /T /PID`
 - **Windows 管道句柄继承**：`asyncio.create_subprocess_shell` 管道可被孙子进程继承，改用 `loop.run_in_executor` + `subprocess.run(stdin=DEVNULL, capture_output=True)`
 - **OpenSandbox entrypoint 陷阱**：默认 entrypoint 不执行 `code-interpreter.sh`，Python 等运行时不在 PATH。必须显式传 `entrypoint=["/opt/code-interpreter/code-interpreter.sh"]` + env 版本变量

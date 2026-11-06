@@ -14,6 +14,12 @@
 - **独立校验**：`execute_remote` 改用 `validate_remote_command`，读取独立的 `SSH_SECURITY_MODE` / `SSH_COMMAND_LIST_MODE` / `SSH_COMMAND_WHITELIST` / `SSH_COMMAND_BLACKLIST`，不再与本地共用 `COMMAND_*`
 - **SSH 黑名单**：`rm`, `dd`, `shutdown`, `reboot`, `format`, `mount`, `fdisk`, `passwd` — 去掉了本地黑名单中的 Windows 独有命令（`del`, `Remove-Item`）和 shell 启动器（`cmd`, `pwsh`, `bash` 等），新增远端破坏性命令（`mount`, `fdisk`, `passwd`）
 
+## 2026-11-06 — 注册表环境 SYSTEM 账户兼容
+
+- **根因**：`_env_from_registry` 从 `os.environ` 补全 `USERPROFILE`/`HOME`/`HOMEDRIVE` 等易失变量，但 MCP 进程运行在 SYSTEM 账户时 `os.environ` 全空，导致 git/uv/cargo 等工具找不到用户配置
+- **修复**：新增 `_find_user_profile_from_registry()` —— 当 `os.environ` 无 `USERPROFILE` 时，从 `HKLM\...\ProfileList` 找 `S-1-5-21-*` 真实用户的 `ProfileImagePath`，推导 `HOME`/`HOMEDRIVE`/`HOMEPATH`/`LOCALAPPDATA`/`APPDATA`
+- **系统变量**：`SYSTEMROOT`/`SYSTEMDRIVE`/`WINDIR` 同样从注册表重建时补全，解决 `%SystemRoot%` 展开失败
+
 ## 2026-10-13 — WSL cwd 修复
 
 - **问题**：`shell=wsl` + Linux 路径 cwd（如 `/home/kali`）时报 `[WinError 267] 目录名称无效`，因 `subprocess.Popen(cwd=)` 不接受 Linux 路径
