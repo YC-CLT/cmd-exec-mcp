@@ -11,6 +11,7 @@ from config import (
     SANDBOX_DEFAULT_IMAGE, SANDBOX_DEFAULT_MOUNT,
 )
 from executors.base import BaseExecutor
+from executors.local import _build_base_env, _apply_strip_and_defaults
 from models import ExecResult
 
 _log_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -53,7 +54,8 @@ class SandboxExecutor(BaseExecutor):
                 pass
 
     def _run_with_timeout(self, docker_cmd, timeout, env=None):
-        merged_env = os.environ.copy()
+        merged_env = _build_base_env()
+        _apply_strip_and_defaults(merged_env)
         merged_env.pop("VIRTUAL_ENV", None)
         if sys.prefix != sys.base_prefix:
             path_parts = merged_env.get("PATH", "").split(os.pathsep)
@@ -63,7 +65,11 @@ class SandboxExecutor(BaseExecutor):
             ]
             merged_env["PATH"] = os.pathsep.join(path_parts)
         if env:
-            merged_env.update(env)
+            for k, v in env.items():
+                if v is None:
+                    merged_env.pop(k, None)
+                else:
+                    merged_env[k] = v
         proc = subprocess.Popen(
             docker_cmd,
             shell=True,
@@ -126,7 +132,8 @@ class SandboxExecutor(BaseExecutor):
 
     async def create_session(self, command, cwd=None, env=None, alive_timeout=None):
         loop = asyncio.get_running_loop()
-        merged_env = os.environ.copy()
+        merged_env = _build_base_env()
+        _apply_strip_and_defaults(merged_env)
         merged_env.pop("VIRTUAL_ENV", None)
         if sys.prefix != sys.base_prefix:
             path_parts = merged_env.get("PATH", "").split(os.pathsep)
@@ -136,7 +143,11 @@ class SandboxExecutor(BaseExecutor):
             ]
             merged_env["PATH"] = os.pathsep.join(path_parts)
         if env:
-            merged_env.update(env)
+            for k, v in env.items():
+                if v is None:
+                    merged_env.pop(k, None)
+                else:
+                    merged_env[k] = v
 
         docker_cmd = self._build_docker_cmd(command, SANDBOX_DEFAULT_IMAGE)
 

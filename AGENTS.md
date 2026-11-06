@@ -36,6 +36,9 @@
 | `SANDBOX_CONFIG_PATH` | config.py | OpenSandbox server 配置文件路径，默认项目根目录，回退 ~/.sandbox.toml |
 | `DEFAULT_TIMEOUT` | config.py | 默认超时 30s，-1 无限 |
 | `FORCE_SHELL` | config.py | 强制指定 Shell pwsh/cmd/bash/wsl |
+| `ENV_SOURCE` | config.py | 本地执行环境来源: "registry"（注册表重建）/"inherit"（父进程继承） |
+| `ENV_STRIP_NAMES` | config.py | 要剥离的环境变量名列表（精确匹配，双模式生效） |
+| `ENV_DEFAULTS` | config.py | 默认注入到子进程的环境变量 dict（优先级低于 AI env 参数） |
 | `SSH_DEFAULT_TARGET` | config.py | SSH 默认目标 [user@]host[:port] |
 | `SSH_DEFAULT_USER` | config.py | SSH 默认用户名 |
 | `SSH_DEFAULT_PORT` | config.py | SSH 默认端口 22 |

@@ -1,5 +1,9 @@
 import os
 
+# ============================================================================
+# 1. MCP Server 核心
+# ============================================================================
+
 # 安全模式: "restricted" | "full"
 SECURITY_MODE = "restricted"
 
@@ -14,13 +18,6 @@ COMMAND_BLACKLIST = ["rm", "del", "Remove-Item", "shutdown", "reboot", "format",
 
 # 默认超时（秒），-1 表示无超时限制，调用方可覆盖
 DEFAULT_TIMEOUT = 30
-
-# 强制指定的 Shell 类型: None 表示自动检测（Win→cmd, Linux→bash），"pwsh" | "bash" | "cmd" 等
-FORCE_SHELL = None
-
-# WSL 配置（shell="wsl" 时生效）
-WSL_DISTRO = "kali-linux"
-WSL_USER = "kali"
 
 # 返回字段配置，true 表示包含该字段
 RESULT_FIELDS = {
@@ -42,8 +39,46 @@ LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 # 输出截断（output_file 参数时，stdout 返回前 N 字符，完整内容落盘）
 OUTPUT_TRUNCATE_LENGTH = 8000
 
-# 沙箱后端: "docker" | "opensandbox"
-SANDBOX_BACKEND = "opensandbox"
+# ============================================================================
+# 2. 持久化 Session 会话
+# ============================================================================
+
+# Session Detach 配置
+SESSION_DEFAULT_ALIVE_TIMEOUT = 300
+SESSION_MAX_OUTPUT_LINES = 10000
+SESSION_MAX_OUTPUT_BYTES = 10 * 1024 * 1024  # 10MB
+
+# ============================================================================
+# 3. 本地执行环境
+# ============================================================================
+
+# 强制指定的 Shell 类型: None 表示自动检测（Win→cmd, Linux→bash），"pwsh" | "bash" | "cmd" 等
+FORCE_SHELL = None
+
+# 本地执行时的环境来源
+#   "registry" — Windows: 从 HKLM + HKCU 注册表重建用户环境（默认，推荐）
+#                注册表不含 MCP host 注入，天然干净
+#                Linux/Mac: 退化为 "inherit"
+#   "inherit"  — 从父进程继承（旧行为），MCP host 可能裁剪了环境
+ENV_SOURCE = "registry"
+
+# 要剥离的环境变量名（精确匹配，区分大小写；双模式均生效）
+# 注册表模式：预留空位，万一有脏数据可手动追加
+# inherit 模式：按需设置，如 ["UV", "PYTHONHOME", "VIRTUAL_ENV"]
+ENV_STRIP_NAMES = []
+
+# 默认注入到所有 execute_local / 纯 Docker sandbox 子进程的环境变量（dict）
+# 优先级低于 AI 调用时的 env 参数，预留空位
+# 示例: {"UV_CACHE_DIR": "D:/code/Python/cache/uv", "UV_LINK_MODE": "hardlink"}
+ENV_DEFAULTS = {}
+
+# WSL 配置（shell="wsl" 时生效）
+WSL_DISTRO = "kali-linux"
+WSL_USER = "kali"
+
+# ============================================================================
+# 4. 纯 Docker 沙箱执行
+# ============================================================================
 
 # 安全配置（仅纯Docker生效）
 SANDBOX_SECURITY_MODE = "full"  # 默认完全模式，容器内随便跑
@@ -57,7 +92,7 @@ SANDBOX_DEFAULT_IMAGE = "opensandbox/code-interpreter:v1.1.0"
 # 挂载目录: None 表示不挂载，调用方可传入 "host_path:container_path"（仅纯Docker生效）
 SANDBOX_DEFAULT_MOUNT = None
 
-# 纯Docke沙箱启动命令前缀：换源 + python alias（bash -lc 执行前拼接）（仅纯Docker生效）
+# 纯Docker沙箱启动命令前缀：换源 + python alias（bash -lc 执行前拼接）（仅纯Docker生效）
 SANDBOX_DOCKER_PREFIX = (
     "export PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/; "
     "export NPM_CONFIG_REGISTRY=https://registry.npmmirror.com; "
@@ -65,6 +100,16 @@ SANDBOX_DOCKER_PREFIX = (
     "ln -sf $HOME/.local/bin/python3.14 $HOME/.local/bin/python 2>/dev/null; "
     "ln -sf /opt/python/versions/cpython-3.14-linux-x86_64-gnu/bin/pip3.14 $HOME/.local/bin/pip 2>/dev/null; "
 )
+
+# ============================================================================
+# 5. OpenSandbox 远程沙箱
+# ============================================================================
+
+# 沙箱后端: "docker" | "opensandbox"
+SANDBOX_BACKEND = "opensandbox"
+
+# 沙箱总开关：False → 所有沙箱功能禁用（RPi 等低资源设备使用）
+SANDBOX_ENABLED = True
 
 # OpenSandbox 后端配置
 SANDBOX_OPEN_TEMPLATE = "opensandbox/code-interpreter:v1.1.0"
@@ -97,6 +142,10 @@ SANDBOX_OPEN_SERVER_IDLE_TIMEOUT = 600     # 无请求空闲多久后自动关�
 # OpenSandbox 命令前缀（备用，正常情况下 entrypoint 已设置 PATH）
 SANDBOX_OPEN_PREFIX = ""
 
+# ============================================================================
+# 6. SSH 远程执行
+# ============================================================================
+
 # SSH 远程执行配置
 SSH_DEFAULT_TARGET = "admin@192.168.2.1:22"    # 默认 SSH 目标，格式: [user@]host[:port]
 SSH_DEFAULT_USER = "admin"      # 默认 SSH 用户名
@@ -111,8 +160,3 @@ SSH_SECURITY_MODE = "restricted"        # "restricted" 启用校验，"full" 放
 SSH_COMMAND_LIST_MODE = "blacklist"     # "whitelist" | "blacklist"
 SSH_COMMAND_WHITELIST = []              # 白名单（whitelist 模式时生效）
 SSH_COMMAND_BLACKLIST = ["rm", "dd", "shutdown", "reboot", "format", "mount", "fdisk", "passwd"]  # 远端破坏性命令
-
-# Session Detach 配置
-SESSION_DEFAULT_ALIVE_TIMEOUT = 300
-SESSION_MAX_OUTPUT_LINES = 10000
-SESSION_MAX_OUTPUT_BYTES = 10 * 1024 * 1024  # 10MB

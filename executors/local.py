@@ -2,10 +2,12 @@
 import asyncio
 import logging
 import os
+import re
 import signal
 import subprocess
 import sys
 import time
+import config
 from config import LOG_FILE, LOG_FORMAT, LOG_DATE_FORMAT
 from executors.base import BaseExecutor
 from models import ExecResult
@@ -21,6 +23,76 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("local")
+
+
+def _env_from_registry():
+    _env = {}
+    import winreg
+    # 1. 读 HKLM：机器级环境
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment") as key:
+            i = 0
+            while True:
+                try:
+                    name, value, _ = winreg.EnumValue(key, i)
+                    _env[name] = str(value)
+                    i += 1
+                except OSError:
+                    break
+    except OSError:
+        pass
+    # 2. 读 HKCU：用户级环境（覆盖同名的机器段）
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+            i = 0
+            while True:
+                try:
+                    name, value, _ = winreg.EnumValue(key, i)
+                    _env[name] = str(value)
+                    i += 1
+                except OSError:
+                    break
+    except OSError:
+        pass
+    # 3. 展开 %VAR% 引用（注册表中的 PATH 等含 %SystemRoot% 等）
+    def _expand(m):
+        var = m.group(1)
+        return os.environ.get(var, _env.get(var, m.group(0)))
+    for k in list(_env.keys()):
+        expanded = re.sub(r"%([^%]+)%", _expand, _env[k])
+        if expanded != _env[k]:
+            _env[k] = expanded
+    return _env
+
+
+def _env_from_inherit():
+    return os.environ.copy()
+
+
+def _build_base_env():
+    if os.name == "nt" and config.ENV_SOURCE == "registry":
+        try:
+            base = _env_from_registry()
+        except Exception:
+            logger.warning("registry env rebuild failed, falling back to inherit")
+            base = _env_from_inherit()
+    else:
+        base = _env_from_inherit()
+    return base
+
+
+def _apply_strip_and_defaults(env):
+    for name in config.ENV_STRIP_NAMES:
+        env.pop(name, None)
+    if "PATH" in env:
+        parts = env["PATH"].split(os.pathsep)
+        parts = [p for p in parts
+                 if not any(keyword in p.lower()
+                           for keyword in ("\\test_host\\", "\\.test_host\\"))]
+        env["PATH"] = os.pathsep.join(parts)
+    for k, v in config.ENV_DEFAULTS.items():
+        env.setdefault(k, v)
 
 
 class LocalExecutor(BaseExecutor):
@@ -69,7 +141,8 @@ class LocalExecutor(BaseExecutor):
         loop = asyncio.get_running_loop()
         subprocess_timeout = timeout if timeout is not None and timeout > 0 else None
 
-        merged_env = os.environ.copy()
+        merged_env = _build_base_env()
+        _apply_strip_and_defaults(merged_env)
         merged_env.pop("VIRTUAL_ENV", None)
         if sys.prefix != sys.base_prefix:
             path_parts = merged_env.get("PATH", "").split(os.pathsep)
@@ -79,7 +152,11 @@ class LocalExecutor(BaseExecutor):
             ]
             merged_env["PATH"] = os.pathsep.join(path_parts)
         if env:
-            merged_env.update(env)
+            for k, v in env.items():
+                if v is None:
+                    merged_env.pop(k, None)
+                else:
+                    merged_env[k] = v
 
         try:
             stdout, stderr, returncode = await loop.run_in_executor(
@@ -114,7 +191,8 @@ class LocalExecutor(BaseExecutor):
 
     async def create_session(self, command, cwd=None, env=None, alive_timeout=None):
         loop = asyncio.get_running_loop()
-        merged_env = os.environ.copy()
+        merged_env = _build_base_env()
+        _apply_strip_and_defaults(merged_env)
         merged_env.pop("VIRTUAL_ENV", None)
         if sys.prefix != sys.base_prefix:
             path_parts = merged_env.get("PATH", "").split(os.pathsep)
@@ -124,7 +202,11 @@ class LocalExecutor(BaseExecutor):
             ]
             merged_env["PATH"] = os.pathsep.join(path_parts)
         if env:
-            merged_env.update(env)
+            for k, v in env.items():
+                if v is None:
+                    merged_env.pop(k, None)
+                else:
+                    merged_env[k] = v
 
         def _start():
             return subprocess.Popen(

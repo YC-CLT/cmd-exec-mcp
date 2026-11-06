@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-10-20 — 本地执行环境源配置 + 配置重组
+
+- **环境源切换**：`execute_local` / 纯 Docker sandbox 子进程环境默认从 Windows 注册表重建（`ENV_SOURCE = "registry"`），不再从父进程继承，解决 MCP host 白名单过滤导致 `UV_*` 等环境变量丢失的问题
+- **配置重组**：`config.py` / `config_example.py` 从平铺改为 6 段结构，按功能域标注段头
+- **新增常量**：`ENV_SOURCE`（环境来源 registry/inherit）、`ENV_STRIP_NAMES`（精确剥离变量名）、`ENV_DEFAULTS`（默认注入 dict）
+- **None 哨兵**：AI 调用时 `env={"FOO": None}` 可从子进程环境中删除变量
+- **受影响文件**：`config.py`、`config_example.py`、`executors/local.py`（新增 `_env_from_registry` / `_env_from_inherit` / `_build_base_env` / `_apply_strip_and_defaults`）、`executors/sandbox.py`
+- **不受影响**：OpenSandbox（HTTP API）、SSH remote（asyncssh 远端环境独立）
+
 ## 2026-10-13 — SSH 安全校验独立
 
 - **独立校验**：`execute_remote` 改用 `validate_remote_command`，读取独立的 `SSH_SECURITY_MODE` / `SSH_COMMAND_LIST_MODE` / `SSH_COMMAND_WHITELIST` / `SSH_COMMAND_BLACKLIST`，不再与本地共用 `COMMAND_*`
