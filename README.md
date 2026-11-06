@@ -18,6 +18,7 @@ A simple command execution MCP server supporting local execution, Docker/OpenSan
 - **Remote** (`execute_remote`): Execute commands via SSH on remote servers, supports standard/custom dual-mode config
 
 - Security mode: restricted (whitelist + blacklist) / full mode
+- Env rebuild: subprocess environment rebuilt from Windows registry (default, `ENV_SOURCE = "registry"`), immune to MCP host env filtering
 - Sequential / parallel execution
 - Timeout control
 - Session detach: background long-running processes with read/send/kill
@@ -54,7 +55,7 @@ Edit `config.py`:
 | `SECURITY_MODE` | `"restricted"` | Security mode: `"restricted"` \| `"full"` |
 | `COMMAND_LIST_MODE` | `"blacklist"` | List mode: `"whitelist"` \| `"blacklist"` |
 | `COMMAND_WHITELIST` | `["ls","dir","git",...]` | Whitelist commands |
-| `COMMAND_BLACKLIST` | `["shutdown","reboot","format",...]` | Blacklist commands |
+| `COMMAND_BLACKLIST` | `["rm","del","shutdown",...]` | Blacklist commands |
 | `ENV_SOURCE` | `"registry"` | Env source: `"registry"` (rebuild from registry) \| `"inherit"` |
 | `ENV_STRIP_NAMES` | `[]` | Env variable names to strip (exact match, both modes) |
 | `ENV_DEFAULTS` | `{}` | Default env vars injected to subprocess (lower priority than AI `env`) |
@@ -282,6 +283,7 @@ MIT
 - **远程执行** (`execute_remote`): 通过 SSH 在远程服务器执行命令，支持 standard/custom 双模式配置
 
 - 安全模式: 受限模式（白名单+黑名单）/ 完全模式
+- 环境重建：子进程默认从 Windows 注册表重建用户环境（`ENV_SOURCE = "registry"`），免疫 MCP host 环境裁剪
 - 单步/并行执行
 - 超时控制
 - 会话分离：后台长时进程，支持 read/send/kill
@@ -319,6 +321,9 @@ uv sync
 | `COMMAND_LIST_MODE` | `"blacklist"` | 列表模式: `"whitelist"` \| `"blacklist"` |
 | `COMMAND_WHITELIST` | `["ls","dir","git",...]` | 白名单 |
 | `COMMAND_BLACKLIST` | `["rm","del","shutdown",...]` | 黑名单 |
+| `ENV_SOURCE` | `"registry"` | 环境来源: `"registry"`（注册表重建）\| `"inherit"`（父进程继承） |
+| `ENV_STRIP_NAMES` | `[]` | 要剥离的环境变量名（精确匹配，双模式生效） |
+| `ENV_DEFAULTS` | `{}` | 默认注入到子进程的环境变量（优先级低于 AI `env` 参数） |
 | `FORCE_SHELL` | `None` | 强制指定 Shell: `"pwsh"`\|`"cmd"`\|`"bash"`\|`"wsl"` |
 | `WSL_DISTRO` | `"kali-linux"` | WSL 发行版名（`shell="wsl"` 时生效） |
 | `WSL_USER` | `"kali"` | WSL 用户名（`shell="wsl"` 时生效） |
