@@ -12,7 +12,7 @@ class TestValidateCommand:
     def test_blacklisted_command_raises(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
         with pytest.raises(ValueError, match="BLOCKED"):
-            validate_command("rm -rf /")
+            validate_command("shutdown /s")
 
     def test_not_whitelisted_command_raises(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
@@ -26,9 +26,9 @@ class TestValidateCommand:
 
     def test_blacklist_takes_priority(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")
-        monkeypatch.setattr(config, "COMMAND_WHITELIST", ["rm"])
+        monkeypatch.setattr(config, "COMMAND_WHITELIST", ["shutdown"])
         with pytest.raises(ValueError, match="BLOCKED"):
-            validate_command("rm file.txt")
+            validate_command("shutdown /s")
 
     def test_command_with_extra_spaces(self, monkeypatch):
         monkeypatch.setattr(config, "SECURITY_MODE", "restricted")

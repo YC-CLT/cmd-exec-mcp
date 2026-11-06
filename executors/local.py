@@ -49,13 +49,21 @@ def _env_from_registry():
             _read_key(key)
     except OSError:
         pass
-    # 3. 补全系统变量（注册表中可能不含 SystemRoot，ExpandEnvironmentStrings 需要）
+    # 3. 补全系统变量（注册表/volatile 缺失项）
     _sysvars = {
+        # 系统级
         "SYSTEMROOT": os.environ.get("SystemRoot", os.path.join(
             os.environ.get("SystemDrive", "C:"), "Windows")),
         "SYSTEMDRIVE": os.environ.get("SystemDrive", "C:"),
         "WINDIR": os.environ.get("windir", os.path.join(
             os.environ.get("SystemDrive", "C:"), "Windows")),
+        # 用户级（Windows 登录时注入，不在持久注册表中）
+        "USERPROFILE": os.environ.get("USERPROFILE", ""),
+        "HOMEDRIVE": os.environ.get("HOMEDRIVE", ""),
+        "HOMEPATH": os.environ.get("HOMEPATH", ""),
+        "LOCALAPPDATA": os.environ.get("LOCALAPPDATA", ""),
+        "APPDATA": os.environ.get("APPDATA", ""),
+        "HOME": os.environ.get("USERPROFILE", ""),
     }
     for k, v in _sysvars.items():
         _env.setdefault(k, v)
@@ -88,7 +96,7 @@ def _build_base_env():
 
 def _apply_strip_and_defaults(env):
     for name in config.ENV_STRIP_NAMES:
-        env.pop(name, None)
+        env.pop(name.upper(), None)
     if "PATH" in env:
         parts = env["PATH"].split(os.pathsep)
         parts = [p for p in parts
@@ -96,7 +104,7 @@ def _apply_strip_and_defaults(env):
                            for keyword in ("\\test_host\\", "\\.test_host\\"))]
         env["PATH"] = os.pathsep.join(parts)
     for k, v in config.ENV_DEFAULTS.items():
-        env.setdefault(k, v)
+        env.setdefault(k.upper(), v)
 
 
 class LocalExecutor(BaseExecutor):
