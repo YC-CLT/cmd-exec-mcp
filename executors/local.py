@@ -25,6 +25,36 @@ logging.basicConfig(
 logger = logging.getLogger("local")
 
 
+def _find_user_profile_from_registry():
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList")
+        i = 0
+        while True:
+            try:
+                sid = winreg.EnumKey(key, i)
+                i += 1
+                if not sid.startswith("S-1-5-21-"):
+                    continue
+                sid_key = winreg.OpenKey(key, sid)
+                try:
+                    profile = winreg.QueryValueEx(sid_key, "ProfileImagePath")[0]
+                    profile = winreg.ExpandEnvironmentStrings(profile)
+                    if os.path.isdir(profile):
+                        sid_key.Close()
+                        key.Close()
+                        return profile
+                finally:
+                    sid_key.Close()
+            except OSError:
+                break
+        key.Close()
+    except Exception:
+        pass
+    return ""
+
+
 def _env_from_registry():
     _env = {}
     import winreg
@@ -51,23 +81,29 @@ def _env_from_registry():
         pass
     # 3. 补全系统变量（注册表/volatile 缺失项）
     _sysvars = {
-        # 系统级
         "SYSTEMROOT": os.environ.get("SystemRoot", os.path.join(
             os.environ.get("SystemDrive", "C:"), "Windows")),
         "SYSTEMDRIVE": os.environ.get("SystemDrive", "C:"),
         "WINDIR": os.environ.get("windir", os.path.join(
             os.environ.get("SystemDrive", "C:"), "Windows")),
-        # 用户级（Windows 登录时注入，不在持久注册表中）
-        "USERPROFILE": os.environ.get("USERPROFILE", ""),
-        "HOMEDRIVE": os.environ.get("HOMEDRIVE", ""),
-        "HOMEPATH": os.environ.get("HOMEPATH", ""),
-        "LOCALAPPDATA": os.environ.get("LOCALAPPDATA", ""),
-        "APPDATA": os.environ.get("APPDATA", ""),
-        "HOME": os.environ.get("USERPROFILE", ""),
     }
+    # 4. 用户级 volatile 变量（注册表中不存在，Windows 登录时注入）
+    #    优先从 os.environ 取（非 SYSTEM 场景），否则从 ProfileList 找真实用户
+    userprofile = os.environ.get("USERPROFILE", "")
+    if not userprofile:
+        userprofile = _find_user_profile_from_registry()
+    if userprofile:
+        _sysvars.update({
+            "USERPROFILE": userprofile,
+            "HOMEDRIVE": userprofile[:2],
+            "HOMEPATH": userprofile[2:],
+            "HOME": userprofile,
+            "LOCALAPPDATA": os.path.join(userprofile, "AppData", "Local"),
+            "APPDATA": os.path.join(userprofile, "AppData", "Roaming"),
+        })
     for k, v in _sysvars.items():
         _env.setdefault(k, v)
-    # 4. 展开 %VAR% 引用
+    # 5. 展开 %VAR% 引用
     def _expand(m):
         var = m.group(1)
         return _env.get(var.upper(), os.environ.get(var, m.group(0)))
