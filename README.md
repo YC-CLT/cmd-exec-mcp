@@ -54,7 +54,10 @@ Edit `config.py`:
 | `SECURITY_MODE` | `"restricted"` | Security mode: `"restricted"` \| `"full"` |
 | `COMMAND_LIST_MODE` | `"blacklist"` | List mode: `"whitelist"` \| `"blacklist"` |
 | `COMMAND_WHITELIST` | `["ls","dir","git",...]` | Whitelist commands |
-| `COMMAND_BLACKLIST` | `["rm","del","shutdown",...]` | Blacklist commands |
+| `COMMAND_BLACKLIST` | `["shutdown","reboot","format",...]` | Blacklist commands |
+| `ENV_SOURCE` | `"registry"` | Env source: `"registry"` (rebuild from registry) \| `"inherit"` |
+| `ENV_STRIP_NAMES` | `[]` | Env variable names to strip (exact match, both modes) |
+| `ENV_DEFAULTS` | `{}` | Default env vars injected to subprocess (lower priority than AI `env`) |
 | `FORCE_SHELL` | `None` | Force shell: `"pwsh"`\|`"cmd"`\|`"bash"`\|`"wsl"` |
 | `WSL_DISTRO` | `"kali-linux"` | WSL distro name (when `shell="wsl"`) |
 | `WSL_USER` | `"kali"` | WSL username (when `shell="wsl"`) |
