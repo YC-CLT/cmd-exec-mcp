@@ -73,12 +73,15 @@ def _env_from_registry():
             _read_key(key)
     except OSError:
         pass
-    # 2. 读 HKCU：用户级环境（覆盖同名的机器段）
+    # 2. 读 HKCU：用户级环境（一般变量覆盖机器段，PATH 拼接避免丢失系统路径）
+    _machine_path = _env.get("PATH", "")
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
             _read_key(key)
     except OSError:
         pass
+    if os.name == "nt" and "PATH" in _env and _machine_path:
+        _env["PATH"] = _env["PATH"] + os.pathsep + _machine_path
     # 3. 补全系统变量（注册表/volatile 缺失项）
     _sysvars = {
         "SYSTEMROOT": os.environ.get("SystemRoot", os.path.join(
